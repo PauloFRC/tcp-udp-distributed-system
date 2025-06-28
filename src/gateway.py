@@ -1,19 +1,32 @@
 import socket
 import threading
-from time import time
+import time
 import datetime
 import struct
-from proto.sensor_data_pb2 import SensorReading, Response, SensorType
+from proto.sensor_data_pb2 import SensorReading, Response, SensorType, GatewayAnnouncement
 
 class Gateway:
-    def __init__(self, host='localhost', tcp_port=6789, udp_port=6790, multicast_group='228.0.0.8', multicast_port=6791):
+    def __init__(self, host='0.0.0.0', tcp_port=6789, udp_port=6790, discovery_group='228.0.0.8', discovery_port=6791):
         self.host = host
         self.tcp_port = tcp_port
         self.udp_port = udp_port
-        self.multicast_group = multicast_group
-        self.multicast_port = multicast_port
+        self.discovery_group = discovery_group
+        self.discovery_port = discovery_port
         self.running = False
         self.sensor_data = {}
+
+        self.gateway_ip = self._get_local_ip()
+
+    def _get_local_ip(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(('10.255.255.255', 1))
+            ip = s.getsockname()[0]
+        except Exception:
+            ip = '127.0.0.1'
+        finally:
+            s.close()
+        return ip
     
     def handle_tcp_client(self, conn, addr):
         response = None
@@ -45,14 +58,14 @@ class Gateway:
                     response = Response()
                     response.success = True
                     response.message = f"Dados recebidos do sensor {reading.sensor_id}"
-                    response.timestamp = int(time())
+                    response.timestamp = int(time.time())
                     
                 except Exception as e:
                     print(f"Erro ao fazer parsing dos dados do sensor: {e}")
                     response = Response()
                     response.success = False
                     response.message = f"Erro: {str(e)}"
-                    response.timestamp = int(time())
+                    response.timestamp = int(time.time())
                     
                     response_data = response.SerializeToString()
                     response_length = struct.pack('!I', len(response_data))
@@ -117,32 +130,47 @@ class Gateway:
             client_thread.daemon = True
             client_thread.start()
 
-    def listen_udp_multicast(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    def listen_udp(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind((self.host, self.udp_port))
 
-        sock.bind(('', self.multicast_port))
-
-        mreq = struct.pack("4sl", socket.inet_aton(self.multicast_group), socket.INADDR_ANY)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-
-        print(f"🌐 Gateway (UDP Multicast) ouvindo em {self.multicast_group}:{self.multicast_port}")
+        print(f"🌐 Gateway (UDP) ouvindo em {self.host}:{self.udp_port} para dados de sensores")
 
         while self.running:
             data, addr = sock.recvfrom(1024)
-            self.handle_udp_data(data, addr, "Multicast UDP")
+            self.handle_udp_data(data, addr)
+
+    def broadcast_discovery(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+
+        announcement = GatewayAnnouncement(
+            gateway_ip=self.gateway_ip,
+            udp_port=self.udp_port
+        )
+        message = announcement.SerializeToString()
+
+        print(f"📢 Iniciando anúncios de descoberta para {self.discovery_group}:{self.discovery_port}")
+        while self.running:
+            sock.sendto(message, (self.discovery_group, self.discovery_port))
+            time.sleep(10) # Anuncia a cada 10s
     
     def start(self):
         self.running = True
         print("🚀 Iniciando Gateway...")
+        print(f"   IP do Gateway para anúncios: {self.gateway_ip}")
 
         tcp_thread = threading.Thread(target=self.listen_tcp)
         tcp_thread.daemon = True
         tcp_thread.start()
 
-        udp_thread = threading.Thread(target=self.listen_udp_multicast)
+        udp_thread = threading.Thread(target=self.listen_udp)
         udp_thread.daemon = True
         udp_thread.start()
+
+        discovery_thread = threading.Thread(target=self.broadcast_discovery)
+        discovery_thread.daemon = True
+        discovery_thread.start()
 
         print("=" * 60)
 

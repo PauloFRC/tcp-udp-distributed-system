@@ -3,7 +3,7 @@ from gateway import Gateway
 from sensor_manager import SensorManager
 from sensors.humidity_sensor import HumiditySensorClient
 from sensors.temperature_sensor import TemperatureSensorClient
-from sensors.movement_sensor import MovementSensor
+from sensors.alarm_sensor import AlarmSensor
 from sensors.udp_sensor_client import UdpSensorClient
 
 
@@ -21,11 +21,11 @@ if __name__ == "__main__":
         
         manager.add_sensor(TemperatureSensorClient("TEMP-001", "Cocó", interval=25))
         manager.add_sensor(HumiditySensorClient("HUM-001", "Cocó", interval=20))
-        manager.add_sensor(TemperatureSensorClient("TEMP-002", "Iracema", interval=35))
-        manager.add_sensor(HumiditySensorClient("HUM-002", "Iracema", interval=45))
+        #manager.add_sensor(TemperatureSensorClient("TEMP-002", "Iracema", interval=35))
+        #manager.add_sensor(HumiditySensorClient("HUM-002", "Iracema", interval=45))
 
-        manager.add_sensor(MovementSensor("UDP-MOV-01", "Corredor Principal"))
-        manager.add_sensor(MovementSensor("UDP-MOV-02", "Porta dos Fundos"))
+        manager.add_sensor(AlarmSensor("UDP-MOV-01", "Banco de Brasil"))
+        manager.add_sensor(AlarmSensor("UDP-MOV-02", "Múseu de Arte"))
         
         try:
             manager.start_all_sensors()

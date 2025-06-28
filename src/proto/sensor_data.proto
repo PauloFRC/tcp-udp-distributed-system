@@ -4,7 +4,7 @@ enum SensorType {
     UNKNOWN = 0;
     TEMPERATURE = 1;
     HUMIDITY = 2;
-    MOVEMENT = 3;
+    ALARM = 3;
 }
 
 message SensorReading {
@@ -21,4 +21,9 @@ message Response {
     bool success = 1;
     string message = 2;
     int64 timestamp = 3;
+}
+
+message GatewayAnnouncement {
+    string gateway_ip = 1;
+    uint32 udp_port = 2;
 }
