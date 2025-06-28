@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+enum SensorType {
+    UNKNOWN = 0;
+    TEMPERATURE = 1;
+    HUMIDITY = 2;
+    MOVEMENT = 3;
+}
+
+message SensorReading {
+    string sensor_id = 1;
+    string location = 2;
+    SensorType sensor_type = 3;
+    double value = 4;
+    string unit = 5;
+    int64 timestamp = 6;
+    map<string, string> metadata = 7;
+}
+
+message Response {
+    bool success = 1;
+    string message = 2;
+    int64 timestamp = 3;
+}
