@@ -1,0 +1,20 @@
+# Cargo.toml: Defines the Rust project and its dependencies.
+
+[package]
+name = "rust_lamp_post"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Tokio is the runtime for writing asynchronous network applications.
+tokio = { version = "1", features = ["full"] } 
+# Prost is a Protobuf implementation for Rust.
+prost = "0.12"
+# Bytes provides utilities for working with bytes, used by prost.
+bytes = "1"
+# Futures provides core abstractions for async programming.
+futures = "0.3"
+
+[build-dependencies]
+# This is used by the build.rs script to compile .proto files into Rust code.
+prost-build = "0.12"

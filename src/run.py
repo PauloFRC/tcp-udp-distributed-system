@@ -1,11 +1,10 @@
 import time
 from gateway import Gateway
-from sensor_manager import SensorManager
-from sensors.humidity_sensor import HumiditySensorClient
-from sensors.temperature_sensor import TemperatureSensorClient
-from sensors.alarm_sensor import AlarmSensor
-from sensors.udp_sensor_client import UdpSensorClient
-
+from sensor_manager import DeviceManager
+from devices.humidity_sensor import HumiditySensorClient
+from devices.temperature_sensor import TemperatureSensorClient
+from devices.alarm_sensor import AlarmSensor
+from devices.semaphore import Semaphore
 
 if __name__ == "__main__":
     import sys
@@ -17,15 +16,17 @@ if __name__ == "__main__":
     
     elif len(sys.argv) > 1 and sys.argv[1] == "multi":
         # Roda múltiplos sensores
-        manager = SensorManager()
+        manager = DeviceManager()
         
-        manager.add_sensor(TemperatureSensorClient("TEMP-001", "Cocó", interval=25))
-        manager.add_sensor(HumiditySensorClient("HUM-001", "Cocó", interval=20))
+        #manager.add_sensor(TemperatureSensorClient("TCP-TEMP-001", "Cocó", interval=25))
+        #manager.add_sensor(HumiditySensorClient("TCP-HUM-001", "Cocó", interval=20))
         #manager.add_sensor(TemperatureSensorClient("TEMP-002", "Iracema", interval=35))
         #manager.add_sensor(HumiditySensorClient("HUM-002", "Iracema", interval=45))
 
-        manager.add_sensor(AlarmSensor("UDP-MOV-01", "Banco de Brasil"))
-        manager.add_sensor(AlarmSensor("UDP-MOV-02", "Múseu de Arte"))
+        #manager.add_sensor(AlarmSensor("UDP-ALARM-01", "Banco de Brasil"))
+        #manager.add_sensor(AlarmSensor("UDP-ALARM-02", "Múseu de Arte"))
+
+        manager.add_sensor(Semaphore("TCP-SEM-01", "Rua x com y"))
         
         try:
             manager.start_all_sensors()
@@ -40,7 +41,7 @@ if __name__ == "__main__":
         sensor = TemperatureSensorClient("TEMP-SENSOR-01", "Aldeota", interval=30)
         
         try:
-            sensor.start_monitoring()
+            sensor.start()
         except KeyboardInterrupt:
-            sensor.stop_monitoring()
+            sensor.stop()
             print("\n🏁 Sensor de temperatura parou.")

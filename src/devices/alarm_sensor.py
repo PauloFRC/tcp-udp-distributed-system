@@ -1,7 +1,7 @@
 import time
 import random
-from sensors.udp_sensor_client import UdpSensorClient
-from proto.sensor_data_pb2 import SensorReading, SensorType
+from devices.udp_sensor_client import UdpSensorClient
+from proto.sensor_data_pb2 import SensorReading, DeviceType
 
 # Sensor de movimento UDP
 class AlarmSensor(UdpSensorClient):
@@ -12,7 +12,7 @@ class AlarmSensor(UdpSensorClient):
         reading = SensorReading()
         reading.sensor_id = self.sensor_id
         reading.location = self.location
-        reading.sensor_type = SensorType.ALARM
+        reading.sensor_type = DeviceType.ALARM
         reading.value = 1.0 # movimento detectado
         reading.unit = "detected"
         reading.timestamp = int(time.time())
@@ -30,3 +30,4 @@ class AlarmSensor(UdpSensorClient):
                 print(f"🏃 [{self.sensor_id}] Alarme detectado!")
                 reading = self._generate_reading()
                 self.send_sensor_reading(reading)
+

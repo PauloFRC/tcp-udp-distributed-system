@@ -1,17 +1,29 @@
+from collections import defaultdict
 import socket
 import threading
 import time
 import datetime
 import struct
-from proto.sensor_data_pb2 import SensorReading, Response, SensorType, GatewayAnnouncement
+from proto.sensor_data_pb2 import SensorReading, Response, DeviceType, GatewayAnnouncement, DeviceCommand
 
 class Gateway:
-    def __init__(self, host='0.0.0.0', tcp_port=6789, udp_port=6790, discovery_group='228.0.0.8', discovery_port=6791):
+    def __init__(self, host='0.0.0.0', tcp_port=6789, udp_port=6790, discovery_group='228.0.0.8', 
+                 discovery_port=6791, command_poll_port=8081):
         self.host = host
         self.tcp_port = tcp_port
         self.udp_port = udp_port
         self.discovery_group = discovery_group
         self.discovery_port = discovery_port
+        self.command_poll_port = command_poll_port
+
+        self.command_devices = set()
+        self.command_devices_lock = threading.Lock()
+
+        self.command_queue = defaultdict(list)
+        self.queue_lock = threading.Lock()
+        self._thread_command_poll = threading.Thread(target=self.run_command_poll_server)
+        self._thread_command_poll.daemon = True
+
         self.running = False
         self.sensor_data = {}
 
@@ -27,6 +39,21 @@ class Gateway:
         finally:
             s.close()
         return ip
+    
+    def run_command_poll_server(self):
+        listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listen_socket.bind((self.host, self.command_poll_port))
+        listen_socket.listen(5)
+        print(f"👂 Command polling server listening on port {self.command_poll_port}")
+
+        while True:
+            conn, addr = listen_socket.accept()
+            handler_thread = threading.Thread(
+                target=self.handle_command_poll_connection, 
+                args=(conn, addr)
+            )
+            handler_thread.start()
     
     def handle_tcp_client(self, conn, addr):
         response = None
@@ -51,7 +78,11 @@ class Gateway:
                     reading = SensorReading()
                     reading.ParseFromString(data)
                     
+                    reading.metadata["address"] = addr[0]
                     self.sensor_data[reading.sensor_id] = reading
+
+                    with self.command_devices_lock:
+                        self.command_devices.add(reading.sensor_id)
                     
                     self.display_sensor_reading(reading, addr)
                     
@@ -90,6 +121,10 @@ class Gateway:
             reading.ParseFromString(data)
 
             self.sensor_data[reading.sensor_id] = reading
+
+            with self.command_devices_lock:
+                self.command_devices.add(reading.sensor_id)
+
             self.display_sensor_reading(reading, addr, protocol)
 
         except Exception as e:
@@ -97,9 +132,69 @@ class Gateway:
             print(f"📊 Bytes recebidos: ({len(data)} bytes). Exception: {e}")
             print(f"  📋 Dados: {data.hex()}")
             print("-" * 60)
+
+    def handle_command_poll_connection(self, conn, addr):
+        try:
+            # 1. Device sends its ID first
+            msg_length_data = conn.recv(4)
+            if not msg_length_data:
+                return
+            msg_length = struct.unpack('!I', msg_length_data)[0]
+            device_id = conn.recv(msg_length).decode('utf-8')
+            print(f"🔎 Device '{device_id}' is polling for commands from {addr}")
+
+            command_to_send = None
+            # 2. Check the queue for a command for this device
+            with self.queue_lock:
+                if self.command_queue[device_id]:
+                    # Get the oldest command from the list
+                    command_to_send = self.command_queue[device_id].pop(0)
+            
+            # 3. Send the command back (or an empty message)
+            if command_to_send:
+                print(f"✅ Sending command '{command_to_send.command}' to '{device_id}'")
+                data = command_to_send.SerializeToString()
+                msg = struct.pack('!I', len(data)) + data
+                conn.sendall(msg)
+            else:
+                # Send an empty message to indicate no command is waiting
+                conn.sendall(struct.pack('!I', 0))
+
+        except Exception as e:
+            print(f"Error handling command poll from {addr}: {e}")
+        finally:
+            conn.close()
+    
+    # RENAME this function from send_command_to_device to queue_command_for_device
+    def queue_command_for_device(self, device_id, command_str):
+        """Puts a command into the queue for a device to pick up later."""
+        print(f"📬 Queuing command '{command_str}' for device '{device_id}'")
+        
+        command = DeviceCommand(
+            target_id=device_id,
+            command=command_str,
+            timestamp=int(time.time())
+        )
+        with self.queue_lock:
+            self.command_queue[device_id].append(command)
+
+    def monitor_and_send_commands(self):
+        """Periodically checks commandable devices and queues commands."""
+        while self.running:
+            time.sleep(10)
+            
+            with self.command_devices_lock:
+                # Iterate over a copy of the set to avoid issues with modification during iteration
+                devices_to_check = list(self.command_devices)
+
+            for sensor_id in devices_to_check:
+                if sensor_id in self.sensor_data:
+                    # 4. Check the device type correctly from the sensor_data dictionary
+                    if self.sensor_data[sensor_id].sensor_type == DeviceType.SEMAPHORE:
+                        self.queue_command_for_device(sensor_id, "verde")
     
     def display_sensor_reading(self, reading, addr, protocol="TCP"):
-        sensor_type_name = SensorType.Name(reading.sensor_type)
+        sensor_type_name = DeviceType.Name(reading.sensor_type)
         
         print(f"📊 Recebeu dado de {sensor_type_name} do endereço {addr} via {protocol}")
         print(f"  🆔 Sensor ID: {reading.sensor_id}")
@@ -171,6 +266,12 @@ class Gateway:
         discovery_thread = threading.Thread(target=self.broadcast_discovery)
         discovery_thread.daemon = True
         discovery_thread.start()
+
+        self._thread_command_poll.start()
+        
+        thread_monitor_commands = threading.Thread(target=self.monitor_and_send_commands)
+        thread_monitor_commands.daemon = True
+        thread_monitor_commands.start()
 
         print("=" * 60)
 

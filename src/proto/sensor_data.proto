@@ -1,16 +1,18 @@
 syntax = "proto3";
 
-enum SensorType {
+enum DeviceType {
     UNKNOWN = 0;
     TEMPERATURE = 1;
     HUMIDITY = 2;
     ALARM = 3;
+    LAMP_POST = 4;
+    SEMAPHORE = 5;
 }
 
 message SensorReading {
     string sensor_id = 1;
     string location = 2;
-    SensorType sensor_type = 3;
+    DeviceType sensor_type = 3;
     double value = 4;
     string unit = 5;
     int64 timestamp = 6;
@@ -26,4 +28,10 @@ message Response {
 message GatewayAnnouncement {
     string gateway_ip = 1;
     uint32 udp_port = 2;
+}
+
+message DeviceCommand {
+  string target_id = 1; 
+  string command = 2;
+  int64 timestamp = 3;
 }

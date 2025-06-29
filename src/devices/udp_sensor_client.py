@@ -4,9 +4,9 @@ import struct
 
 from jwt import DecodeError
 from proto.sensor_data_pb2 import SensorReading, GatewayAnnouncement
-from sensors.sensor_client import SensorClient
+from devices.sensor_client import Device
 
-class UdpSensorClient(SensorClient):
+class UdpSensorClient(Device):
     def __init__(self, sensor_id: str, location: str, discovery_group='228.0.0.9', discovery_port=6792):
         super().__init__(sensor_id, location)
         self.discovery_group = discovery_group
@@ -61,8 +61,8 @@ class UdpSensorClient(SensorClient):
             print(f"⚠️  [{self.sensor_id}] Erro no envio UDP: {e}")
             self.gateway_address = None 
 
-    def stop_monitoring(self):
-        super().stop_monitoring()
+    def stop(self):
+        super().stop()
         self.sock.close()
 
     def _monitor_loop(self):

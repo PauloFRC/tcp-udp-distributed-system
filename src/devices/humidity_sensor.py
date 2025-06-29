@@ -1,11 +1,11 @@
 import random
 import time
 from typing import Dict
-from proto.sensor_data_pb2 import SensorReading, SensorType
-from sensors.tcp_sensor_client import TcpSensorClient
+from proto.sensor_data_pb2 import SensorReading, DeviceType
+from devices.tcp_sensor_client import TcpDeviceClient
 
 # Sensor de umidade TCP
-class HumiditySensorClient(TcpSensorClient):
+class HumiditySensorClient(TcpDeviceClient):
     def __init__(self, sensor_id: str, location: str, interval: int = 25, host: str = 'localhost', port: int = 6789):
         super().__init__(sensor_id, location, host, port, interval)
 
@@ -13,7 +13,7 @@ class HumiditySensorClient(TcpSensorClient):
         reading = SensorReading()
         reading.sensor_id = self.sensor_id
         reading.location = self.location
-        reading.sensor_type = SensorType.HUMIDITY
+        reading.sensor_type = DeviceType.HUMIDITY
         reading.value = round(random.uniform(40.0, 60.0), 2)
         reading.unit = "%"
         reading.timestamp = int(time.time())
@@ -21,7 +21,6 @@ class HumiditySensorClient(TcpSensorClient):
 
     def _monitor_loop(self):
         while self.running:
-            reading = self._generate_reading()
-            self.send_sensor_reading(reading)
+            self.send_data_gateway()
             time.sleep(self.interval)
             
