@@ -174,8 +174,8 @@ class Gateway:
 
     def monitor_and_send_commands(self):
         while self.running:
-            # a cada 30 segundos, verifica se algum comando deveria ser enviado a algum dispositivo
-            time.sleep(30)
+            # a cada 10 segundos, verifica se algum comando deveria ser enviado a algum dispositivo
+            time.sleep(10)
             
             with self.command_devices_lock:
                 devices_to_check = list(self.command_devices)
