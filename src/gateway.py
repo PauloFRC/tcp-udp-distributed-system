@@ -140,7 +140,7 @@ class Gateway:
                 return
             msg_length = struct.unpack('!I', msg_length_data)[0]
             device_id = conn.recv(msg_length).decode('utf-8')
-            print(f"🔎 Device '{device_id}' is polling for commands from {addr}")
+            print(f"🔎 Dispositivo '{device_id}' está esperando por comando no endereço {addr}")
 
             command_to_send = None
             with self.queue_lock:
@@ -174,8 +174,8 @@ class Gateway:
 
     def monitor_and_send_commands(self):
         while self.running:
-            # a cada 10 segundos, verifica se algum comando deveria ser enviado a algum dispositivo
-            time.sleep(10)
+            # a cada 30 segundos, verifica se algum comando deveria ser enviado a algum dispositivo
+            time.sleep(30)
             
             with self.command_devices_lock:
                 devices_to_check = list(self.command_devices)
@@ -183,7 +183,9 @@ class Gateway:
             for sensor_id in devices_to_check:
                 if sensor_id in self.sensor_data:
                     if self.sensor_data[sensor_id].sensor_type == DeviceType.SEMAPHORE:
-                        self.queue_command_for_device(sensor_id, "verde")
+                        self.queue_command_for_device(sensor_id, "verde") # muda semaforo pra verde
+                    elif self.sensor_data[sensor_id].location == "Cocó":
+                        self.queue_command_for_device(sensor_id, "send") # pede pros sensores no cocó enviarem dados
     
     def display_sensor_reading(self, reading, addr, protocol="TCP"):
         sensor_type_name = DeviceType.Name(reading.sensor_type)

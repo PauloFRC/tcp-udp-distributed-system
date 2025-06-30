@@ -18,16 +18,16 @@ if __name__ == "__main__":
         # Roda múltiplos sensores
         manager = DeviceManager()
         
-        manager.add_sensor(TemperatureSensorClient("TCP-TEMP-001", "Cocó", interval=25))
-        manager.add_sensor(HumiditySensorClient("TCP-HUM-001", "Cocó", interval=20))
+        manager.add_sensor(TemperatureSensorClient("TCP-TEMP-01", "Cocó", interval=25))
+        manager.add_sensor(HumiditySensorClient("TCP-HUM-01", "Cocó", interval=20))
         #manager.add_sensor(TemperatureSensorClient("TEMP-002", "Iracema", interval=35))
         #manager.add_sensor(HumiditySensorClient("HUM-002", "Iracema", interval=45))
 
         manager.add_sensor(AlarmSensor("UDP-ALARM-01", "Banco de Brasil"))
         manager.add_sensor(AlarmSensor("UDP-ALARM-02", "Múseu de Arte"))
 
-        manager.add_sensor(Semaphore("TCP-SEM-01", "Rua Maria com rua João"))
-        manager.add_sensor(Semaphore("TCP-SEM-02", "Rua Leonardo com rua Pedro"))
+        manager.add_sensor(Semaphore("TCP-SEM-01", "Rua Maria com rua João", interval=40))
+        manager.add_sensor(Semaphore("TCP-SEM-02", "Rua Leonardo com rua Pedro", interval=60))
         
         try:
             manager.start_all_sensors()

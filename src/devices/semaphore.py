@@ -1,6 +1,6 @@
 import threading
 import time
-from proto.sensor_data_pb2 import DeviceType
+from proto.sensor_data_pb2 import DeviceType, DeviceCommand
 from proto.sensor_data_pb2 import SensorReading
 from devices.tcp_sensor_client import TcpDeviceClient
 
@@ -35,7 +35,7 @@ class Semaphore(TcpDeviceClient):
             case "verde": 
                 self.state = "vermelho"
     
-    def handle_command(self, command):
+    def handle_command(self, command: DeviceCommand):
         super().handle_command(command)
         command_str = command.command
         # atualiza a cor do semáforo se for passada um comando para mudar de cor
@@ -52,8 +52,8 @@ class Semaphore(TcpDeviceClient):
             time.sleep(sleep_time)
 
     def _monitor_loop(self):
-        # inicializa threads de receber comandos e atualizar o semáforo
-        self._thread_poll_commands.start()
+        super()._monitor_loop()
+        # inicializa thread de atualizar o semáforo
         self._thread_semaphore.start()
 
         while self.running:

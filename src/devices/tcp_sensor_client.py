@@ -16,10 +16,6 @@ class TcpDeviceClient(Device):
         self.command_poll_port = command_poll_port
         self.interval = interval
 
-        #self._thread_send_data = threading.Thread(target=self.run_send_data)
-        #self._thread_send_data.daemon = True
-
-        # ADD a new thread for polling for commands
         self._thread_poll_commands = threading.Thread(target=self.run_poll_for_commands)
         self._thread_poll_commands.daemon = True
 
@@ -61,8 +57,13 @@ class TcpDeviceClient(Device):
     def _generate_reading(self) -> SensorReading:
         pass
 
-    def handle_command(self, command):
-        print(f"📥 [{self.sensor_id}] Recebeu o comando: '{command}'")
+    def handle_command(self, command: DeviceCommand):
+        command_str = command.command
+        print(f"📥 [{self.sensor_id}] Recebeu o comando: '{command_str}'")
+
+        # por padrão todo dispositivo tem o comportamento de enviar leitura se receber comando de envio
+        if command_str == "send":
+            self.send_data_gateway()
 
     def send_data_gateway(self):
         reading = self._generate_reading()
@@ -97,5 +98,6 @@ class TcpDeviceClient(Device):
             print(f"⚠️  [{self.sensor_id}] Erro no envio TCP: {e}")
     
     def _monitor_loop(self):
-        pass
+        # inicializa thread de receber comandos
+        self._thread_poll_commands.start()
 
