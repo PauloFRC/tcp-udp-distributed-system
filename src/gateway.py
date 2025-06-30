@@ -45,7 +45,7 @@ class Gateway:
         listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listen_socket.bind((self.host, self.command_poll_port))
         listen_socket.listen(5)
-        print(f"👂 Command polling server listening on port {self.command_poll_port}")
+        print(f"👂 Fila de comandos ouvindo na porta {self.command_poll_port}")
 
         while True:
             conn, addr = listen_socket.accept()
@@ -135,7 +135,6 @@ class Gateway:
 
     def handle_command_poll_connection(self, conn, addr):
         try:
-            # 1. Device sends its ID first
             msg_length_data = conn.recv(4)
             if not msg_length_data:
                 return
@@ -144,20 +143,17 @@ class Gateway:
             print(f"🔎 Device '{device_id}' is polling for commands from {addr}")
 
             command_to_send = None
-            # 2. Check the queue for a command for this device
             with self.queue_lock:
                 if self.command_queue[device_id]:
-                    # Get the oldest command from the list
                     command_to_send = self.command_queue[device_id].pop(0)
             
-            # 3. Send the command back (or an empty message)
             if command_to_send:
-                print(f"✅ Sending command '{command_to_send.command}' to '{device_id}'")
+                print(f"✅ Enviando comando '{command_to_send.command}' para dispositivo '{device_id}'")
                 data = command_to_send.SerializeToString()
                 msg = struct.pack('!I', len(data)) + data
                 conn.sendall(msg)
             else:
-                # Send an empty message to indicate no command is waiting
+                # Envia mensagem vazia
                 conn.sendall(struct.pack('!I', 0))
 
         except Exception as e:
@@ -165,10 +161,8 @@ class Gateway:
         finally:
             conn.close()
     
-    # RENAME this function from send_command_to_device to queue_command_for_device
     def queue_command_for_device(self, device_id, command_str):
-        """Puts a command into the queue for a device to pick up later."""
-        print(f"📬 Queuing command '{command_str}' for device '{device_id}'")
+        print(f"📬 Adicionando na fila comando '{command_str}' para o dispositivo '{device_id}'")
         
         command = DeviceCommand(
             target_id=device_id,
@@ -179,17 +173,15 @@ class Gateway:
             self.command_queue[device_id].append(command)
 
     def monitor_and_send_commands(self):
-        """Periodically checks commandable devices and queues commands."""
         while self.running:
+            # a cada 10 segundos, verifica se algum comando deveria ser enviado a algum dispositivo
             time.sleep(10)
             
             with self.command_devices_lock:
-                # Iterate over a copy of the set to avoid issues with modification during iteration
                 devices_to_check = list(self.command_devices)
 
             for sensor_id in devices_to_check:
                 if sensor_id in self.sensor_data:
-                    # 4. Check the device type correctly from the sensor_data dictionary
                     if self.sensor_data[sensor_id].sensor_type == DeviceType.SEMAPHORE:
                         self.queue_command_for_device(sensor_id, "verde")
     

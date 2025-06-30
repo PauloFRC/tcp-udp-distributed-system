@@ -11,19 +11,19 @@ class UdpSensorClient(Device):
         super().__init__(sensor_id, location)
         self.discovery_group = discovery_group
         self.discovery_port = discovery_port
-        self.gateway_address = None # Will be (ip, port)
+        self.gateway_address = None
         
-        # Socket for sending data to the gateway (will be unicast)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     def discover_gateway(self):
+        # Procura um gateway para se conectar
         listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listen_sock.bind(('', self.discovery_port))
         
         mreq = struct.pack("4sl", socket.inet_aton(self.discovery_group), socket.INADDR_ANY)
         listen_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-        listen_sock.settimeout(1.0) # Set timeout to unblock loop
+        listen_sock.settimeout(1.0)
 
         print(f"🔎 [{self.sensor_id}] Procurando gateway em {self.discovery_group}:{self.discovery_port}...")
 
@@ -36,7 +36,7 @@ class UdpSensorClient(Device):
                 self.gateway_address = (announcement.gateway_ip, announcement.udp_port)
                 print(f"✅ [{self.sensor_id}] Gateway encontrado em {self.gateway_address}")
             except socket.timeout:
-                continue # No message received, just continue waiting
+                continue
             except DecodeError:
                 print(f"⚠️  [{self.sensor_id}] Recebido pacote de descoberta malformado. Ignorando.")
                 continue
@@ -48,7 +48,6 @@ class UdpSensorClient(Device):
         listen_sock.close()
 
     def send_sensor_reading(self, reading: SensorReading):
-        """Sends a single sensor reading directly to the discovered gateway."""
         if not self.gateway_address:
             print(f"⚠️  [{self.sensor_id}] Gateway não encontrado. Não é possível enviar dados.")
             return
@@ -66,10 +65,7 @@ class UdpSensorClient(Device):
         self.sock.close()
 
     def _monitor_loop(self):
-        """The main loop for the sensor's operation."""
-        # First, discover the gateway. This will block until the gateway is found.
         self.discover_gateway()
         
-        # The subclass will implement the rest of the loop
-        if not self.running: # If discovery was interrupted
+        if not self.running:
             return

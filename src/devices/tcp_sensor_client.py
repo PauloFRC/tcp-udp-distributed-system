@@ -26,43 +26,37 @@ class TcpDeviceClient(Device):
         self.running = False
 
     def run_poll_for_commands(self):
-        """Periodically connects to the gateway to ask for commands."""
         while True:
             try:
-                # Wait for 5 seconds before asking for a command
+                # A cada 5 seg espera procura por um comando
                 time.sleep(5)
 
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     s.connect((self.host, self.command_poll_port))
 
-                    # 1. Send our ID to the gateway so it knows who is asking
                     sensor_id_bytes = self.sensor_id.encode('utf-8')
                     msg = struct.pack('!I', len(sensor_id_bytes)) + sensor_id_bytes
                     s.sendall(msg)
 
-                    # 2. Wait for a response
                     len_data = s.recv(4)
                     if not len_data:
                         continue
                     
                     msg_len = struct.unpack('!I', len_data)[0]
 
-                    # If length is 0, gateway has no command for us
                     if msg_len == 0:
                         continue
 
-                    # 3. If we get data, it's a command
                     command_data = s.recv(msg_len)
                     command = DeviceCommand()
                     command.ParseFromString(command_data)
                     
-                    # Call the same handle_command method as before
                     self.handle_command(command)
 
             except ConnectionRefusedError:
-                print(f"⚠️ Could not connect to command server at {self.host}:{self.command_poll_port}. Is the gateway running?")
+                print(f"⚠️ Falha ao se conectar ao servidor {self.host}:{self.command_poll_port}. O gateway está offline?")
             except Exception as e:
-                print(f"An error occurred while polling for commands: {e}")
+                print(f"Erro encontrado ao procurar por comandos: {e}")
 
     def _generate_reading(self) -> SensorReading:
         pass

@@ -16,7 +16,6 @@ class AlarmSensor(UdpSensorClient):
         reading.value = 1.0 # movimento detectado
         reading.unit = "detected"
         reading.timestamp = int(time.time())
-        reading.metadata["trigger"] = "passive_infrared"
         return reading
 
     def _monitor_loop(self):
@@ -27,7 +26,7 @@ class AlarmSensor(UdpSensorClient):
             time.sleep(time_to_wait)
 
             if self.running:
-                print(f"🏃 [{self.sensor_id}] Alarme detectado!")
+                print(f"🚨 [{self.sensor_id}] Alarme detectado!")
                 reading = self._generate_reading()
                 self.send_sensor_reading(reading)
 
