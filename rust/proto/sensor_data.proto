@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package sensor_data;
+
+enum DeviceType {
+    UNKNOWN = 0;
+    TEMPERATURE = 1;
+    HUMIDITY = 2;
+    ALARM = 3;
+    LAMP_POST = 4;
+    SEMAPHORE = 5;
+}
+
+message SensorReading {
+    string sensor_id = 1;
+    string location = 2;
+    DeviceType sensor_type = 3;
+    double value = 4;
+    string unit = 5;
+    int64 timestamp = 6;
+    map<string, string> metadata = 7;
+}
+
+message Response {
+    bool success = 1;
+    string message = 2;
+    int64 timestamp = 3;
+}
+
+message GatewayAnnouncement {
+    string gateway_ip = 1;
+    uint32 tcp_port = 2;
+    uint32 udp_port = 3;
+    uint32 command_port = 4;
+}
+
+message DeviceCommand {
+  string target_id = 1; 
+  string command = 2;
+  int64 timestamp = 3;
+}

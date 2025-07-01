@@ -184,8 +184,10 @@ class Gateway:
                 if sensor_id in self.sensor_data:
                     if self.sensor_data[sensor_id].sensor_type == DeviceType.SEMAPHORE:
                         self.queue_command_for_device(sensor_id, "vermelho") # muda semaforo pra vermelho
-                    elif self.sensor_data[sensor_id].location == "Cocó":
+                    if self.sensor_data[sensor_id].location == "Cocó":
                         self.queue_command_for_device(sensor_id, "send") # pede pros sensores no cocó enviarem dados
+                    if self.sensor_data[sensor_id].sensor_type == DeviceType.LAMP_POST:
+                        self.queue_command_for_device(sensor_id, "on")
     
     def display_sensor_reading(self, reading, addr, protocol="TCP"):
         sensor_type_name = DeviceType.Name(reading.sensor_type)
