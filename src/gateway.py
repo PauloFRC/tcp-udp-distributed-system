@@ -183,7 +183,7 @@ class Gateway:
             for sensor_id in devices_to_check:
                 if sensor_id in self.sensor_data:
                     if self.sensor_data[sensor_id].sensor_type == DeviceType.SEMAPHORE:
-                        self.queue_command_for_device(sensor_id, "verde") # muda semaforo pra verde
+                        self.queue_command_for_device(sensor_id, "vermelho") # muda semaforo pra vermelho
                     elif self.sensor_data[sensor_id].location == "Cocó":
                         self.queue_command_for_device(sensor_id, "send") # pede pros sensores no cocó enviarem dados
     

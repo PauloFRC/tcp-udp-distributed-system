@@ -23,10 +23,10 @@ if __name__ == "__main__":
         #manager.add_sensor(TemperatureSensorClient("TEMP-002", "Iracema", interval=35))
         #manager.add_sensor(HumiditySensorClient("HUM-002", "Iracema", interval=45))
 
-        manager.add_sensor(AlarmSensor("ALARM-01", "Banco de Brasil"))
+        #manager.add_sensor(AlarmSensor("ALARM-01", "Banco de Brasil"))
         #manager.add_sensor(AlarmSensor("ALARM-02", "Múseu de Arte"))
 
-        #manager.add_sensor(Semaphore("SEM-01", "Rua Maria com rua João", interval=40))
+        manager.add_sensor(Semaphore("SEM-01", "Rua Maria com rua João", interval=40))
         #manager.add_sensor(Semaphore("SEM-02", "Rua Leonardo com rua Pedro", interval=60))
         
         try:

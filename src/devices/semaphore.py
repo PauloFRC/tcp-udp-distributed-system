@@ -5,13 +5,15 @@ from proto.sensor_data_pb2 import SensorReading
 from devices.default_device import DeviceClient
 
 class Semaphore(DeviceClient):
-    def __init__(self, sensor_id: str, location: str, 
-                 host: str = 'localhost', port: int = 6789, command_poll_port: int = 8081, interval: int = 10):
-        super().__init__(sensor_id, location, host, port, command_poll_port, interval)
+    def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791):
+        super().__init__(sensor_id, location, interval, discovery_group, discovery_port)
+
         self.state = "vermelho"
         self.state_lock = threading.Lock()
         self.semaphore_color_map = {"vermelho":0, "amarelo":1, "verde":2}
         self.intervals = {"vermelho": self.interval, "verde":self.interval, "amarelo":4}
+        self._state_changed = threading.Event()
+
 
         self._thread_semaphore = threading.Thread(target=self._semaphore_loop, daemon=True)
     
@@ -26,13 +28,15 @@ class Semaphore(DeviceClient):
         return reading
     
     def _update_state(self):
-        match self.state:
-            case "vermelho":
-                self.state = "amarelo"
-            case "amarelo":
-                self.state = "verde"
-            case "verde": 
-                self.state = "vermelho"
+        with self.state_lock:
+            match self.state:
+                case "vermelho":
+                    self.state = "amarelo"
+                case "amarelo":
+                    self.state = "verde"
+                case "verde": 
+                    self.state = "vermelho"
+        print("Mudou semáforo para estado", self.state)
     
     def handle_command(self, command: DeviceCommand):
         super().handle_command(command)
@@ -42,13 +46,15 @@ class Semaphore(DeviceClient):
             with self.state_lock:
                 self.state = command_str
             print(f"🚦 [{self.sensor_id}] Semáforo atualizado:", self.state)
+            self._state_changed.set()
     
     def _semaphore_loop(self):
         while self.running:
             with self.state_lock:
                 self._update_state()
                 sleep_time = self.intervals[self.state]
-            time.sleep(sleep_time)
+            self._state_changed.wait(timeout=sleep_time)
+            self._state_changed.clear()
 
     def _monitor_loop(self):
         super()._monitor_loop()
