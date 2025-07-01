@@ -2,9 +2,9 @@ import threading
 import time
 from proto.sensor_data_pb2 import DeviceType, DeviceCommand
 from proto.sensor_data_pb2 import SensorReading
-from devices.tcp_sensor_client import TcpDeviceClient
+from devices.default_device import DeviceClient
 
-class Semaphore(TcpDeviceClient):
+class Semaphore(DeviceClient):
     def __init__(self, sensor_id: str, location: str, 
                  host: str = 'localhost', port: int = 6789, command_poll_port: int = 8081, interval: int = 10):
         super().__init__(sensor_id, location, host, port, command_poll_port, interval)
@@ -23,7 +23,6 @@ class Semaphore(TcpDeviceClient):
         with self.state_lock:
             reading.value = self.semaphore_color_map[self.state]
         reading.timestamp = int(time.time())
-        reading.metadata['command_poll_port'] = str(self.command_poll_port)
         return reading
     
     def _update_state(self):
@@ -58,5 +57,5 @@ class Semaphore(TcpDeviceClient):
 
         while self.running:
             time.sleep(self.interval)
-            self.send_data_gateway()
+            self.send_tcp_data()
     

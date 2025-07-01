@@ -235,7 +235,9 @@ class Gateway:
 
         announcement = GatewayAnnouncement(
             gateway_ip=self.gateway_ip,
-            udp_port=self.udp_port
+            tcp_port=self.tcp_port,
+            udp_port=self.udp_port,
+            command_port=self.command_poll_port
         )
         message = announcement.SerializeToString()
 

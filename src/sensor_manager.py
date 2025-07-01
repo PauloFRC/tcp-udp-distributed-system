@@ -1,5 +1,5 @@
 import threading
-from devices.sensor_client import Device
+from devices.device import Device
 
 class DeviceManager:
     def __init__(self):
