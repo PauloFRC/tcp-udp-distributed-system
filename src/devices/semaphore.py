@@ -8,7 +8,7 @@ class Semaphore(DeviceClient):
     def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791):
         super().__init__(sensor_id, location, interval, discovery_group, discovery_port)
 
-        self.state = "vermelho"
+        self.state = "verde"
         self.state_lock = threading.Lock()
         self.semaphore_color_map = {"vermelho":0, "amarelo":1, "verde":2}
         self.intervals = {"vermelho": self.interval, "verde":self.interval, "amarelo":4}

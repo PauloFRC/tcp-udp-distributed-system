@@ -31,7 +31,7 @@ impl LampPostClient {
         }
     }
 
-    async fn generate_reading(&self) -> SensorReading {
+    fn generate_reading(&self) -> SensorReading {
         let mut rng = rand::thread_rng();
 
         let timestamp = SystemTime::now()
@@ -75,7 +75,7 @@ impl LampPostClient {
         loop {
             interval.tick().await;
             
-            let reading = self.generate_reading().await;
+            let reading = self.generate_reading();
             
             if let Err(e) = self.send_udp_reading(reading).await {
                 log::error!("[{}] Falha ao enviar dado UDP: {}", self.device_client.sensor_id, e);
@@ -113,6 +113,11 @@ impl LampPostClient {
         self.device_client.handle_command(command.clone()).await?;
 
         match command.command.as_str() {
+            "send" => {
+                log::info!("[{}] Enviando leitura do poste", self.device_client.sensor_id);
+                let reading = self.generate_reading();
+                self.device_client.send_tcp_data(reading).await?
+            }
             "on" => {
                 log::info!("[{}] Ligando poste", self.device_client.sensor_id);
                 self.state.store(true, Ordering::SeqCst);

@@ -6,16 +6,23 @@ from devices.default_device import DeviceClient
 class AlarmSensor(DeviceClient):
     def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791):
         super().__init__(sensor_id, location, interval, discovery_group, discovery_port)
+        self.state = 0.0
 
     def _generate_reading(self) -> SensorReading:
         reading = SensorReading()
         reading.sensor_id = self.sensor_id
         reading.location = self.location
         reading.sensor_type = DeviceType.ALARM
-        reading.value = 1.0 # movimento detectado
+        reading.value = self.state
         reading.unit = "%"
         reading.timestamp = int(time.time())
         return reading
+    
+    # Envia alarme e logo após desativa
+    def ring_alarm(self):
+        self.state = 1.0 # Movimento detectado
+        self.send_tcp_data()
+        self.state = 0.0 # Sem movimento
 
     def _monitor_loop(self):
         super()._monitor_loop()

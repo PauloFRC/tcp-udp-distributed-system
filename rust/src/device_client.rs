@@ -175,21 +175,19 @@ impl DeviceClient {
     pub async fn handle_command(&self, command: DeviceCommand) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         log::info!("[{}] Recebeu o comando: '{}'", self.sensor_id, command.command);
 
-        if command.command == "send" {
-            self.send_tcp_data().await?;
-        }
+        // if command.command == "send" {
+        //     self.send_tcp_data().await?;
+        // }
 
         Ok(())
     }
 
-    pub async fn send_tcp_data(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn send_tcp_data(&self, reading: SensorReading) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let addresses = self.gateway_addresses.read().await.clone();
         let Some(addresses) = addresses else {
             log::warn!("[{}] Endereço TCP do gateway não encontrado. Não é possível enviar dados.", self.sensor_id);
             return Ok(());
         };
-
-        let reading = self.generate_reading().await;
         
         match TcpStream::connect(&addresses.tcp).await {
             Ok(mut stream) => {
@@ -234,20 +232,4 @@ impl DeviceClient {
         self.gateway_addresses.read().await.is_some()
     }
 
-    pub async fn generate_reading(&self) -> SensorReading {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
-
-        SensorReading {
-            sensor_id: self.sensor_id.clone(),
-            location: self.location.clone(),
-            sensor_type: DeviceType::Unknown.into(),
-            value: 0.0,
-            unit: "".to_string(),
-            timestamp,
-            metadata: std::collections::HashMap::new(),
-        }
-    }
 }
