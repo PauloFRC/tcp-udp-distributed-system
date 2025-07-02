@@ -269,12 +269,10 @@ class Gateway:
 
     def handle_status_query_connection(self, conn, addr):
         try:
-            # Read the length of the incoming AppRequest message
             length_data = conn.recv(4)
             if not length_data: return
             msg_length = struct.unpack('!I', length_data)[0]
 
-            # Read the AppRequest message data
             request_data = b''
             while len(request_data) < msg_length:
                 chunk = conn.recv(msg_length - len(request_data))
@@ -284,13 +282,11 @@ class Gateway:
             app_request = AppRequest()
             app_request.ParseFromString(request_data)
 
-            print(f"📱 App at {addr} sent request of type: {AppRequest.RequestType.Name(app_request.type)}")
+            print(f"📱 Cliente no endereõ {addr} enviou requisição: {AppRequest.RequestType.Name(app_request.type)}")
 
-            # Handle based on request type
             if app_request.type == AppRequest.RequestType.LIST_DEVICES:
                 response = GatewayResponse(type=GatewayResponse.ResponseType.DEVICE_LIST)
                 with self.sensor_data_lock:
-                    # Add all last-known readings to the list
                     response.device_list.devices.extend(self.sensor_data.values())
                 
                 serialized_response = response.SerializeToString()
@@ -318,14 +314,14 @@ class Gateway:
                     serialized_response = response.SerializeToString()
                     conn.sendall(struct.pack('!I', len(serialized_response)) + serialized_response)
                 else:
-                    conn.sendall(struct.pack('!I', 0)) # Timeout or no data
+                    conn.sendall(struct.pack('!I', 0))
 
             elif app_request.type == AppRequest.RequestType.QUEUE_COMMAND:
                 command_req = app_request.command_request
                 self.queue_command_for_device(command_req.target_id, command_req.command)
                 
                 response = GatewayResponse(type=GatewayResponse.ResponseType.COMMAND_CONFIRMATION)
-                response.confirmation_message = f"Command '{command_req.command}' queued for {command_req.target_id}."
+                response.confirmation_message = f"Comando '{command_req.command}' colocado na fila {command_req.target_id}."
                 serialized_response = response.SerializeToString()
                 conn.sendall(struct.pack('!I', len(serialized_response)) + serialized_response)
 
@@ -340,12 +336,12 @@ class Gateway:
                     serialized_response = response.SerializeToString()
                     conn.sendall(struct.pack('!I', len(serialized_response)) + serialized_response)
                 
-                conn.sendall(struct.pack('!I', 0)) # End of stream
+                conn.sendall(struct.pack('!I', 0))
 
         except Exception as e:
-            print(f"Error handling status query from {addr}: {e}")
+            print(f"Erro no endereço {addr}: {e}")
         finally:
-            print(f"📱 Closing connection with {addr}.")
+            print(f"📱 Fechando conexão com {addr}.")
             conn.close()
     
     def start(self):
