@@ -34,7 +34,6 @@ class Semaphore(DeviceClient):
                 self.state = "verde"
             case "verde": 
                 self.state = "vermelho"
-        print("Mudou semáforo para estado", self.state)
     
     def handle_command(self, command: DeviceCommand):
         super().handle_command(command)

@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -61,7 +64,6 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
-
     private val gatewayHost = "10.0.2.2"
     private val gatewayPort = 8082
 
@@ -98,6 +100,8 @@ class MainActivity : ComponentActivity() {
         val allSensorReadings = remember { mutableStateMapOf<String, DeviceData>() }
         var allDevices by remember { mutableStateOf<List<SensorReading>>(emptyList()) }
         var selectedDeviceId by remember { mutableStateOf<String?>(null) }
+
+        val activeAlarms = remember { mutableStateMapOf<String, String>() }
 
         var status by remember { mutableStateOf("Esperando pelos dados...") }
 
@@ -175,6 +179,17 @@ class MainActivity : ComponentActivity() {
                                 val response = GatewayResponse.parseFrom(responseBytes)
                                 if (response.type == GatewayResponse.ResponseType.DEVICE_LIST) {
                                     allDevices = response.deviceList.devicesList
+
+                                    // Checa port alarmes
+                                    val newActiveAlarms = mutableMapOf<String, String>()
+                                    response.deviceList.devicesList.forEach { device ->
+                                        if (device.sensorType == DeviceType.ALARM && device.value == 1.0) {
+                                            newActiveAlarms[device.sensorId] = device.location
+                                        }
+                                    }
+                                    activeAlarms.clear()
+                                    activeAlarms.putAll(newActiveAlarms)
+
                                     if (selectedDeviceId != null && allDevices.none { it.sensorId == selectedDeviceId }) {
                                         selectedDeviceId = null
                                     }
@@ -231,6 +246,8 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
+            AlarmWarningSection(activeAlarms = activeAlarms)
+
             Spacer(Modifier.height(10.dp))
             Text("Inspecionar Dispositivo", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(10.dp))
@@ -258,6 +275,48 @@ class MainActivity : ComponentActivity() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+
+    @Composable
+    fun AlarmWarningSection(activeAlarms: Map<String, String>) {
+        AnimatedVisibility(visible = activeAlarms.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                elevation = CardDefaults.cardElevation(4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Alerta",
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(40.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text(
+                            text = "ALERTA DE SEGURANÇA!",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        // Display the locations of the active alarms
+                        activeAlarms.values.distinct().forEach { location ->
+                            Text(
+                                text = "- Incidente em: $location",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 
