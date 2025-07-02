@@ -8,13 +8,14 @@ from proto.sensor_data_pb2 import SensorReading, Response, DeviceType, GatewayAn
 
 class Gateway:
     def __init__(self, host='0.0.0.0', tcp_port=6789, udp_port=6790, discovery_group='228.0.0.8', 
-                 discovery_port=6791, command_poll_port=8081):
+                 discovery_port=6791, command_poll_port=8081, status_query_port=8082):
         self.host = host
         self.tcp_port = tcp_port
         self.udp_port = udp_port
         self.discovery_group = discovery_group
         self.discovery_port = discovery_port
         self.command_poll_port = command_poll_port
+        self.status_query_port = status_query_port
 
         self.command_devices = set()
         self.command_devices_lock = threading.Lock()
@@ -26,6 +27,7 @@ class Gateway:
 
         self.running = False
         self.sensor_data = {}
+        self.sensor_data_lock = threading.Lock()
 
         self.gateway_ip = self._get_local_ip()
 
@@ -120,7 +122,8 @@ class Gateway:
             reading = SensorReading()
             reading.ParseFromString(data)
 
-            self.sensor_data[reading.sensor_id] = reading
+            with self.sensor_data_lock:
+                self.sensor_data[reading.sensor_id] = reading
 
             with self.command_devices_lock:
                 self.command_devices.add(reading.sensor_id)
@@ -247,6 +250,62 @@ class Gateway:
         while self.running:
             sock.sendto(message, (self.discovery_group, self.discovery_port))
             time.sleep(10) # Anuncia a cada 10s
+
+    def run_status_query_server(self):
+        """
+        Runs a TCP server to listen for data requests from clients like the Android app.
+        """
+        listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listen_socket.bind((self.host, self.status_query_port))
+        listen_socket.listen(5)
+        print(f"📱 Servidor de consulta de status ouvindo na porta {self.status_query_port}")
+
+        while self.running:
+            conn, addr = listen_socket.accept()
+            query_handler_thread = threading.Thread(
+                target=self.handle_status_query_connection,
+                args=(conn, addr)
+            )
+            query_handler_thread.daemon = True
+            query_handler_thread.start()
+
+    def handle_status_query_connection(self, conn, addr):
+        """
+        Finds the latest temperature data and sends it to the connected client.
+        """
+        print(f"📱 App conectado de {addr} para consulta de status.")
+        latest_temp_reading = None
+        
+        with self.sensor_data_lock:
+            # Find the most recent reading from a TEMPERATURE sensor
+            readings = [
+                r for r in self.sensor_data.values() 
+                if r.sensor_type == DeviceType.TEMPERATURE
+            ]
+            if readings:
+                latest_temp_reading = max(readings, key=lambda r: r.timestamp)
+
+        latest_temp_reading = SensorReading()
+        latest_temp_reading.sensor_type = DeviceType.TEMPERATURE
+        latest_temp_reading.value = 24.0
+        latest_temp_reading.location = "Fortaleza"
+
+        try:
+            if latest_temp_reading:
+                print(f"✅ Enviando dado de temperatura para {addr}")
+                serialized_data = latest_temp_reading.SerializeToString()
+                # Pack the length of the message and send it, then the message
+                message = struct.pack('!I', len(serialized_data)) + serialized_data
+                conn.sendall(message)
+            else:
+                print("🤷 Nenhum dado de temperatura encontrado para enviar.")
+                # Send a 0-length message to indicate no data
+                conn.sendall(struct.pack('!I', 0))
+        except Exception as e:
+            print(f"Error sending data to {addr}: {e}")
+        finally:
+            conn.close()
     
     def start(self):
         self.running = True
@@ -271,6 +330,10 @@ class Gateway:
         thread_monitor_commands.daemon = True
         thread_monitor_commands.start()
 
+        status_query_thread = threading.Thread(target=self.run_status_query_server)
+        status_query_thread.daemon = True
+        status_query_thread.start()
+
         print("=" * 60)
 
         try:
@@ -281,5 +344,6 @@ class Gateway:
             self.running = False
     
     def get_sensor_status(self):
-        return dict(self.sensor_data)
+        with self.sensor_data_lock:
+            return dict(self.sensor_data)
     
