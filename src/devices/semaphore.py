@@ -27,14 +27,13 @@ class Semaphore(DeviceClient):
         return reading
     
     def _update_state(self):
-        with self.state_lock:
-            match self.state:
-                case "vermelho":
-                    self.state = "amarelo"
-                case "amarelo":
-                    self.state = "verde"
-                case "verde": 
-                    self.state = "vermelho"
+        match self.state:
+            case "vermelho":
+                self.state = "amarelo"
+            case "amarelo":
+                self.state = "verde"
+            case "verde": 
+                self.state = "vermelho"
         print("Mudou semáforo para estado", self.state)
     
     def handle_command(self, command: DeviceCommand):

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,12 +53,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.io.BufferedReader
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.io.InputStreamReader
 import java.net.Socket
-import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -129,7 +125,7 @@ class MainActivity : ComponentActivity() {
 
                             while (isActive) {
                                 val len = input.readInt()
-                                if (len == 0) break // End of stream
+                                if (len == 0) break
                                 val responseBytes = ByteArray(len)
                                 input.readFully(responseBytes)
                                 val response = GatewayResponse.parseFrom(responseBytes)
@@ -190,7 +186,7 @@ class MainActivity : ComponentActivity() {
                         allDevices = emptyList()
                         selectedDeviceId = null
                     }
-                    delay(10000L) // Refresh list every 10 seconds
+                    delay(10000L) // Atualiza a cada 10 segundos
                 }
             }
         }
@@ -206,7 +202,7 @@ class MainActivity : ComponentActivity() {
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             LocationSelector(
                 locations = locations,
@@ -215,7 +211,7 @@ class MainActivity : ComponentActivity() {
                     selectedLocation = newLocation
                 }
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -315,18 +311,32 @@ class MainActivity : ComponentActivity() {
 
         fun sendDeviceCommand(command: String) {
             scope.launch(Dispatchers.IO) {
-                requestStatus = "Sending '$command'..."
+                requestStatus = "Enviando '$command'..."
                 try {
+                    val commandProto = SensorData.DeviceCommand.newBuilder().setTargetId(deviceInfo.sensorId).setCommand(command).build()
+                    val request = AppRequest.newBuilder().setType(AppRequest.RequestType.QUEUE_COMMAND).setCommandRequest(commandProto).build()
+
                     Socket(gatewayHost, gatewayPort).use { socket ->
-                        val fullCommand = "QUEUE_COMMAND:${deviceInfo.sensorId}:$command"
-                        socket.outputStream.write(fullCommand.toByteArray())
-                        socket.outputStream.flush()
-                        // Read confirmation
-                        val reader = BufferedReader(InputStreamReader(socket.inputStream))
-                        requestStatus = reader.readLine() ?: "Command sent, no confirmation."
+                        val output = DataOutputStream(socket.outputStream)
+                        val input = DataInputStream(socket.inputStream)
+
+                        val requestBytes = request.toByteArray()
+                        output.writeInt(requestBytes.size)
+                        output.write(requestBytes)
+                        output.flush()
+
+                        val len = input.readInt()
+                        if (len > 0) {
+                            val responseBytes = ByteArray(len)
+                            input.readFully(responseBytes)
+                            val response = GatewayResponse.parseFrom(responseBytes)
+                            if (response.type == GatewayResponse.ResponseType.COMMAND_CONFIRMATION) {
+                                requestStatus = response.confirmationMessage
+                            }
+                        }
                     }
                 } catch (e: Exception) {
-                    requestStatus = "Error: ${e.message}"
+                    requestStatus = "Erro: ${e.message}"
                 }
             }
         }
@@ -336,7 +346,7 @@ class MainActivity : ComponentActivity() {
             elevation = CardDefaults.cardElevation(2.dp),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.padding(16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(text = deviceInfo.sensorId, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
 
@@ -356,25 +366,34 @@ class MainActivity : ComponentActivity() {
                     scope.launch(Dispatchers.IO) {
                         requestStatus = "Requisitando dados..."
                         try {
+                            val onDemandReq = AppRequest.OnDemandRequest.newBuilder().setDeviceId(deviceInfo.sensorId).build()
+                            val request = AppRequest.newBuilder().setType(AppRequest.RequestType.GET_ON_DEMAND_DATA).setOnDemandRequest(onDemandReq).build()
+
                             Socket(gatewayHost, gatewayPort).use { socket ->
-                                val command = "GET_TCP_DATA:${deviceInfo.sensorId}"
-                                socket.getOutputStream().write(command.toByteArray())
-                                socket.getOutputStream().flush()
+                                val output = DataOutputStream(socket.outputStream)
+                                val input = DataInputStream(socket.inputStream)
 
-                                val lengthBytes = ByteArray(4)
-                                socket.getInputStream().readFully(lengthBytes, 0, 4)
-                                val length = ByteBuffer.wrap(lengthBytes).int
+                                val requestBytes = request.toByteArray()
+                                output.writeInt(requestBytes.size)
+                                output.write(requestBytes)
+                                output.flush()
 
-                                val dataBytes = ByteArray(length)
-                                socket.getInputStream().readFully(dataBytes, 0, length)
-
-                                val reading = SensorReading.parseFrom(dataBytes)
-                                tcpData = DeviceData(reading.sensorId, reading.value, reading.unit, reading.timestamp, reading.sensorType)
-                                requestStatus = "Leitura TCP atualizada"
+                                val len = input.readInt()
+                                if (len > 0) {
+                                    val responseBytes = ByteArray(len)
+                                    input.readFully(responseBytes)
+                                    val response = GatewayResponse.parseFrom(responseBytes)
+                                    if (response.type == GatewayResponse.ResponseType.SINGLE_READING) {
+                                        val reading = response.singleReading
+                                        tcpData = DeviceData(reading.sensorId, reading.value, reading.unit, reading.timestamp, reading.sensorType)
+                                        requestStatus = "Leitura TCP atualizada"
+                                    }
+                                } else {
+                                    requestStatus = "Timeout no gateway."
+                                }
                             }
                         } catch (e: Exception) {
-                            requestStatus = "Error: ${e.message}"
-                            e.printStackTrace()
+                            requestStatus = "Erro: ${e.message}"
                         }
                     }
                 }) {
@@ -384,7 +403,7 @@ class MainActivity : ComponentActivity() {
                 when (displayData.sensorType) {
                     DeviceType.SEMAPHORE -> {
                         Button(onClick = { sendDeviceCommand("vermelho") }) {
-                            Text("Set to 'vermelho'")
+                            Text("Fechar semáforo")
                         }
                     }
 
@@ -490,17 +509,5 @@ class MainActivity : ComponentActivity() {
         if (timestamp == null) return "N/A"
         val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
         return sdf.format(Date(timestamp))
-    }
-}
-
-// Helper extension to ensure all bytes are read from the InputStream
-fun java.io.InputStream.readFully(buffer: ByteArray, offset: Int, length: Int) {
-    var bytesRead = 0
-    while (bytesRead < length) {
-        val result = this.read(buffer, offset + bytesRead, length - bytesRead)
-        if (result == -1) {
-            throw java.io.EOFException("End of stream reached before reading all bytes")
-        }
-        bytesRead += result
     }
 }
