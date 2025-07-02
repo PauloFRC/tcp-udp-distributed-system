@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,8 +35,6 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.res.ResourcesCompat
-import androidx.media3.common.util.Log
 import com.ds.distributedsystems.SensorData.DeviceType
 import com.ds.distributedsystems.SensorData.SensorReading
 import com.ds.distributedsystems.ui.theme.DistributedSystemsTheme
@@ -76,81 +75,71 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun SensorDashboardScreen(modifier: Modifier = Modifier) {
-        // State for the selected location
         var selectedLocation by remember { mutableStateOf("Cocó") }
         val locations = listOf("Cocó", "Aldeota", "Iracema")
 
-        // States for sensor data
         var temperatureData by remember { mutableStateOf(SensorData()) }
         var humidityData by remember { mutableStateOf(SensorData()) }
         var status by remember { mutableStateOf("Waiting for data...") }
 
-        // This effect will re-launch whenever the selectedLocation changes
         LaunchedEffect(selectedLocation) {
-            // Reset states when location changes
             temperatureData = SensorData()
             humidityData = SensorData()
-            status = "Connecting to gateway for location: $selectedLocation..."
+            status = "Se conectando aos dados da localização: $selectedLocation..."
 
             launch(Dispatchers.IO) {
                 while (isActive) {
                     try {
-                        // Using Socket.use ensures it's closed automatically
                         Socket(gatewayHost, gatewayPort).use { socket ->
-                            // This example assumes the gateway sends a simple message.
-                            // First, we need to ask the server for data for a specific location.
-                            // We will send the location name as a simple string.
                             val outputStream = socket.getOutputStream()
                             val locationBytes = selectedLocation.toByteArray()
                             outputStream.write(locationBytes)
-                            outputStream.flush() // Ensure data is sent
+                            outputStream.flush()
 
-                            // Now, read the response from the server
                             val inputStream = socket.getInputStream()
-                            val lengthBytes = ByteArray(4)
 
-                            // Read the length of the incoming message
-                            if (inputStream.read(lengthBytes) != 4) {
-                                status = "Failed to read message length."
-                                delay(2000)
-                                return@use // Continue to next iteration
-                            }
-                            val length = ByteBuffer.wrap(lengthBytes).int
-
-                            if (length == 0) {
-                                status = "No new data available for $selectedLocation."
-                                delay(2000)
-                                return@use
-                            }
-
-                            // Read the actual message data
-                            val dataBytes = ByteArray(length)
-                            var bytesRead = 0
-                            while (bytesRead < length) {
-                                val result = inputStream.read(dataBytes, bytesRead, length - bytesRead)
-                                if (result == -1) break
-                                bytesRead += result
-                            }
-
-                            // Assuming the server sends one reading at a time
-                            val reading = SensorReading.parseFrom(dataBytes)
-
-                            if (reading.location == selectedLocation) {
-                                when (reading.sensorType) {
-                                    DeviceType.TEMPERATURE -> {
-                                        temperatureData = SensorData(reading.value, reading.unit, reading.timestamp)
-                                    }
-                                    DeviceType.HUMIDITY -> {
-                                        humidityData = SensorData(reading.value, reading.unit, reading.timestamp)
-                                    }
-
-                                    DeviceType.UNKNOWN -> TODO()
-                                    DeviceType.ALARM -> TODO()
-                                    DeviceType.LAMP_POST -> TODO()
-                                    DeviceType.SEMAPHORE -> TODO()
-                                    DeviceType.UNRECOGNIZED -> TODO()
+                            while (true) {
+                                val lengthBytes = ByteArray(4)
+                                val readLen = inputStream.read(lengthBytes)
+                                if (readLen != 4) {
+                                    status = "Falha ao ler tamanho da mensagem."
+                                    break
                                 }
-                                status = "Last update: ${formatTimestamp(System.currentTimeMillis())}"
+
+                                val length = ByteBuffer.wrap(lengthBytes).int
+                                if (length == 0) {
+                                    break
+                                }
+
+                                val dataBytes = ByteArray(length)
+                                var bytesRead = 0
+                                while (bytesRead < length) {
+                                    val result = inputStream.read(dataBytes, bytesRead, length - bytesRead)
+                                    if (result == -1) {
+                                        status = "Fim inesperado da stream."
+                                        break
+                                    }
+                                    bytesRead += result
+                                }
+                                if (bytesRead < length) {
+                                    break
+                                }
+
+                                val reading = SensorReading.parseFrom(dataBytes)
+
+                                if (reading.location == selectedLocation) {
+                                    when (reading.sensorType) {
+                                        DeviceType.TEMPERATURE -> {
+                                            temperatureData = SensorData(reading.value, reading.unit, reading.timestamp)
+                                        }
+                                        DeviceType.HUMIDITY -> {
+                                            humidityData = SensorData(reading.value, reading.unit, reading.timestamp)
+                                        }
+                                        else -> {
+                                        }
+                                    }
+                                    status = "Última atualização: ${formatTimestamp(System.currentTimeMillis())}"
+                                }
                             }
                         }
                     } catch (e: Exception) {
@@ -162,7 +151,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // UI Layout
         Column(
             modifier = modifier
                 .fillMaxSize()
@@ -170,13 +158,12 @@ class MainActivity : ComponentActivity() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Sensor Dashboard",
+                text = "Sistema de Cidade Inteligente",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Location Selector
             LocationSelector(
                 locations = locations,
                 selectedLocation = selectedLocation,
@@ -186,7 +173,6 @@ class MainActivity : ComponentActivity() {
             )
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Sensor Data Cards
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -194,20 +180,19 @@ class MainActivity : ComponentActivity() {
                 SensorDisplayCard(
                     modifier = Modifier.weight(1f),
                     icon = ImageVector.vectorResource(id = R.drawable.thermostat),
-                    title = "Temperature",
+                    title = "Temperatura",
                     data = temperatureData
                 )
                 SensorDisplayCard(
                     modifier = Modifier.weight(1f),
                     icon = ImageVector.vectorResource(id = R.drawable.droplet_solid),
-                    title = "Humidity",
+                    title = "Umidade",
                     data = humidityData
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f)) // Pushes status to the bottom
+            Spacer(modifier = Modifier.weight(1f))
 
-            // Status Text
             Text(
                 text = status,
                 style = MaterialTheme.typography.bodySmall,
@@ -249,7 +234,10 @@ class MainActivity : ComponentActivity() {
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth()
+                    .fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -265,16 +253,17 @@ class MainActivity : ComponentActivity() {
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 if (data.value != null) {
                     Text(
                         text = "${data.value} ${data.unit}",
                         style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "at ${formatTimestamp(data.timestamp)}",
+                        text = "em ${formatTimestamp(data.timestamp)}",
                         style = MaterialTheme.typography.bodySmall,
                         fontSize = 10.sp
                     )
@@ -289,7 +278,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Helper function to format timestamp
     private fun formatTimestamp(timestamp: Long?): String {
         if (timestamp == null) return "N/A"
         val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())

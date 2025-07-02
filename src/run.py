@@ -18,12 +18,12 @@ if __name__ == "__main__":
         # Roda múltiplos sensores
         manager = DeviceManager()
         
-        manager.add_sensor(TemperatureSensorClient("TEMP-01", "Cocó", interval=10))
-        manager.add_sensor(HumiditySensorClient("HUM-01", "Cocó", interval=10))
-        manager.add_sensor(TemperatureSensorClient("TEMP-002", "Iracema", interval=10))
-        manager.add_sensor(HumiditySensorClient("HUM-002", "Iracema", interval=10))
-        manager.add_sensor(TemperatureSensorClient("TEMP-003", "Aldeota", interval=10))
-        manager.add_sensor(HumiditySensorClient("HUM-003", "Aldeota", interval=10))
+        manager.add_sensor(TemperatureSensorClient("TEMP-01", "Cocó", interval=25))
+        manager.add_sensor(HumiditySensorClient("HUM-01", "Cocó", interval=25))
+        manager.add_sensor(TemperatureSensorClient("TEMP-002", "Iracema", interval=30))
+        manager.add_sensor(HumiditySensorClient("HUM-002", "Iracema", interval=30))
+        manager.add_sensor(TemperatureSensorClient("TEMP-003", "Aldeota", interval=35))
+        manager.add_sensor(HumiditySensorClient("HUM-003", "Aldeota", interval=35))
 
         #manager.add_sensor(AlarmSensor("ALARM-01", "Banco de Brasil"))
         #manager.add_sensor(AlarmSensor("ALARM-02", "Múseu de Arte"))
