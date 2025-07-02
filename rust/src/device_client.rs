@@ -78,7 +78,17 @@ impl DeviceClient {
             self.sensor_id, self.discovery_group, self.discovery_port
         );
 
-        let socket = tokio::net::UdpSocket::bind(format!("0.0.0.0:{}", self.discovery_port)).await?;
+        let addr = std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED), self.discovery_port);
+        let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
+        socket.set_reuse_address(true)?;
+        #[cfg(target_family = "unix")]
+        socket.set_reuse_port(true)?;
+        socket.bind(&addr.into())?;
+        socket.set_nonblocking(true)?;
+        let std_udp_socket = std::net::UdpSocket::from(socket);
+        let socket = tokio::net::UdpSocket::from_std(std_udp_socket)?;
+
+        //let socket = tokio::net::UdpSocket::bind(format!("0.0.0.0:{}", self.discovery_port)).await?;
         socket.join_multicast_v4(self.discovery_group, std::net::Ipv4Addr::UNSPECIFIED)?;
 
         while *self.running.read().await {

@@ -22,8 +22,7 @@ class Semaphore(DeviceClient):
         reading.sensor_id = self.sensor_id
         reading.location = self.location
         reading.sensor_type = DeviceType.SEMAPHORE
-        with self.state_lock:
-            reading.value = self.semaphore_color_map[self.state]
+        reading.value = self.semaphore_color_map[self.state]
         reading.timestamp = int(time.time())
         return reading
     
@@ -60,8 +59,6 @@ class Semaphore(DeviceClient):
         super()._monitor_loop()
         # inicializa thread de atualizar o semáforo
         self._thread_semaphore.start()
-
         while self.running:
-            time.sleep(self.interval)
-            self.send_tcp_data()
-    
+            self.send_udp_data()
+            time.sleep(self.interval) 
