@@ -61,4 +61,4 @@ class Semaphore(DeviceClient):
         self._thread_semaphore.start()
         while self.running:
             self.send_udp_data()
-            time.sleep(self.interval) 
+            time.sleep(self.interval)    

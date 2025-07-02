@@ -271,36 +271,21 @@ class Gateway:
             query_handler_thread.start()
 
     def handle_status_query_connection(self, conn, addr):
-        """
-        Finds the latest temperature data and sends it to the connected client.
-        """
         print(f"📱 App conectado de {addr} para consulta de status.")
-        latest_temp_reading = None
+        last_readings = None
         
         with self.sensor_data_lock:
-            # Find the most recent reading from a TEMPERATURE sensor
-            readings = [
-                r for r in self.sensor_data.values() 
-                if r.sensor_type == DeviceType.TEMPERATURE
-            ]
-            if readings:
-                latest_temp_reading = max(readings, key=lambda r: r.timestamp)
-
-        latest_temp_reading = SensorReading()
-        latest_temp_reading.sensor_type = DeviceType.TEMPERATURE
-        latest_temp_reading.value = 24.0
-        latest_temp_reading.location = "Fortaleza"
+            last_readings = list(self.sensor_data.values())
 
         try:
-            if latest_temp_reading:
-                print(f"✅ Enviando dado de temperatura para {addr}")
-                serialized_data = latest_temp_reading.SerializeToString()
-                # Pack the length of the message and send it, then the message
-                message = struct.pack('!I', len(serialized_data)) + serialized_data
-                conn.sendall(message)
+            if last_readings:
+                for reading in last_readings:
+                    print(f"✅ Enviando dado do sensor {reading.sensor_id} para {addr}")
+                    serialized_data = reading.SerializeToString()
+                    message = struct.pack('!I', len(serialized_data)) + serialized_data
+                    conn.sendall(message)
             else:
-                print("🤷 Nenhum dado de temperatura encontrado para enviar.")
-                # Send a 0-length message to indicate no data
+                print("🤷 Nenhum dado encontrado para enviar.")
                 conn.sendall(struct.pack('!I', 0))
         except Exception as e:
             print(f"Error sending data to {addr}: {e}")
