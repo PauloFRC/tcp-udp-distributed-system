@@ -22,7 +22,7 @@ class DeviceControlServicer(sensor_data_pb2_grpc.DeviceControlServicer):
         return sensor_data_pb2.CommandResponse(success=True, message="Command received")
 
 class DeviceClient(Device):
-    def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791, grpc_port=50051):
+    def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791, grpc_port=0):
         super().__init__(sensor_id, location)
         self.interval = interval
         self.discovery_group = discovery_group
@@ -35,16 +35,21 @@ class DeviceClient(Device):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         self.running = False
+        self.grpc_server_started = threading.Event()
 
     def start_grpc_server(self):
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
         sensor_data_pb2_grpc.add_DeviceControlServicer_to_server(DeviceControlServicer(self), server)
-        server.add_insecure_port(f'[::]:{self.grpc_port}')
+        port = server.add_insecure_port(f'[::]:{self.grpc_port}')
+        self.grpc_port = port
         server.start()
         print(f"🔑 [{self.sensor_id}] Servidor gRPC iniciado na porta {self.grpc_port}")
+        self.grpc_server_started.set() # Sinaliza que o servidor iniciou
         server.wait_for_termination()
 
     def discover_gateway(self):
+        self.grpc_server_started.wait()
+        
         # Procura um gateway para se conectar
         listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -80,11 +85,11 @@ class DeviceClient(Device):
         listen_sock.close()
 
     def _monitor_loop(self):
-        self.discover_gateway()
-
         grpc_thread = threading.Thread(target=self.start_grpc_server)
         grpc_thread.daemon = True
         grpc_thread.start()
+
+        self.discover_gateway()
 
     def _generate_reading(self) -> SensorReading:
         pass
@@ -98,6 +103,8 @@ class DeviceClient(Device):
             self.send_tcp_data()
 
     def send_tcp_data(self):
+        self.grpc_server_started.wait() 
+
         reading = self._generate_reading()
         reading.metadata["grpc_port"] = str(self.grpc_port)
         try:
@@ -131,6 +138,8 @@ class DeviceClient(Device):
             print(f"⚠️  [{self.sensor_id}] Erro no envio TCP: {e}")
 
     def send_udp_data(self):
+        self.grpc_server_started.wait() 
+
         reading = self._generate_reading()
         reading.metadata["grpc_port"] = str(self.grpc_port)
         if not self.udp_gateway_address:

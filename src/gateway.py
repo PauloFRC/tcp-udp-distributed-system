@@ -83,9 +83,10 @@ class Gateway:
                     reading.ParseFromString(data)
                     
                     with self.devices_lock:
+                        print("ADICIONANDO DISPOSITIVO", reading.sensor_id)
                         self.devices[reading.sensor_id] = {
                             "address": addr[0],
-                            "grpc_port": reading.metadata.get("grpc_port", 50051) # Default port
+                            "grpc_port": int(reading.metadata.get("grpc_port", 50051)) # Default port
                         }
 
                     reading.metadata["address"] = addr[0]
@@ -128,9 +129,10 @@ class Gateway:
             reading.ParseFromString(data)
 
             with self.devices_lock:
+                print("ADICIONANDO DISPOSITIVO", reading.sensor_id)
                 self.devices[reading.sensor_id] = {
                     "address": addr[0],
-                    "grpc_port": reading.metadata.get("grpc_port", 50051) # Default port
+                    "grpc_port": int(reading.metadata.get("grpc_port", 50051)) # Default port
                 }
 
             with self.sensor_data_lock:
