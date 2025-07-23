@@ -8,24 +8,41 @@ from proto.sensor_data_pb2 import Response, DeviceCommand, GatewayAnnouncement
 from proto.sensor_data_pb2 import SensorReading
 from devices.device import Device
 
+import grpc
+from concurrent import futures
+from proto import sensor_data_pb2
+from proto import sensor_data_pb2_grpc
+
+class DeviceControlServicer(sensor_data_pb2_grpc.DeviceControlServicer):
+    def __init__(self, device_client):
+        self.device_client = device_client
+
+    def SendCommand(self, request, context):
+        self.device_client.handle_command(request)
+        return sensor_data_pb2.CommandResponse(success=True, message="Command received")
+
 class DeviceClient(Device):
-    def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791):
-        self.sensor_id = sensor_id
-        self.location = location
+    def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791, grpc_port=50051):
+        super().__init__(sensor_id, location)
         self.interval = interval
         self.discovery_group = discovery_group
         self.discovery_port = discovery_port
+        self.grpc_port = grpc_port
 
         self.tcp_gateway_address = None
         self.udp_gateway_address = None
-        self.command_gateway_address = None
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        self._thread_poll_commands = threading.Thread(target=self.run_poll_for_commands)
-        self._thread_poll_commands.daemon = True
-
         self.running = False
+
+    def start_grpc_server(self):
+        server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        sensor_data_pb2_grpc.add_DeviceControlServicer_to_server(DeviceControlServicer(self), server)
+        server.add_insecure_port(f'[::]:{self.grpc_port}')
+        server.start()
+        print(f"🔑 [{self.sensor_id}] Servidor gRPC iniciado na porta {self.grpc_port}")
+        server.wait_for_termination()
 
     def discover_gateway(self):
         # Procura um gateway para se conectar
@@ -62,38 +79,12 @@ class DeviceClient(Device):
         
         listen_sock.close()
 
-    def run_poll_for_commands(self):
-        while True:
-            try:
-                # A cada 5 seg espera procura por um comando
-                time.sleep(5)
+    def _monitor_loop(self):
+        self.discover_gateway()
 
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.connect(self.command_gateway_address)
-
-                    sensor_id_bytes = self.sensor_id.encode('utf-8')
-                    msg = struct.pack('!I', len(sensor_id_bytes)) + sensor_id_bytes
-                    s.sendall(msg)
-
-                    len_data = s.recv(4)
-                    if not len_data:
-                        continue
-                    
-                    msg_len = struct.unpack('!I', len_data)[0]
-
-                    if msg_len == 0:
-                        continue
-
-                    command_data = s.recv(msg_len)
-                    command = DeviceCommand()
-                    command.ParseFromString(command_data)
-                    
-                    self.handle_command(command)
-
-            except ConnectionRefusedError:
-                print(f"⚠️ Falha ao se conectar ao servidor {self.command_gateway_address[0]}:{self.command_gateway_address[1]}. O gateway está offline?")
-            except Exception as e:
-                print(f"Erro encontrado ao procurar por comandos: {e}")
+        grpc_thread = threading.Thread(target=self.start_grpc_server)
+        grpc_thread.daemon = True
+        grpc_thread.start()
 
     def _generate_reading(self) -> SensorReading:
         pass
@@ -108,6 +99,7 @@ class DeviceClient(Device):
 
     def send_tcp_data(self):
         reading = self._generate_reading()
+        reading.metadata["grpc_port"] = str(self.grpc_port)
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect(self.tcp_gateway_address)
@@ -140,6 +132,7 @@ class DeviceClient(Device):
 
     def send_udp_data(self):
         reading = self._generate_reading()
+        reading.metadata["grpc_port"] = str(self.grpc_port)
         if not self.udp_gateway_address:
             print(f"⚠️  [{self.sensor_id}] Endereço UDP do gateway não encontrado. Não é possível enviar dados.")
             return
@@ -149,11 +142,5 @@ class DeviceClient(Device):
             print(f"📤 [{self.sensor_id}] enviou via UDP para {self.udp_gateway_address}: {reading.value} {reading.unit}")
         except Exception as e:
             print(f"⚠️  [{self.sensor_id}] Erro no envio UDP: {e}")
-            self.udp_gateway_address = None 
-    
-    def _monitor_loop(self):
-        self.discover_gateway()
-
-        # inicializa thread de receber comandos
-        self._thread_poll_commands.start()
+            self.udp_gateway_address = None
 

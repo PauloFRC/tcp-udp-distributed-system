@@ -11,9 +11,7 @@ class Semaphore(DeviceClient):
         self.state = "verde"
         self.state_lock = threading.Lock()
         self.semaphore_color_map = {"vermelho":0, "amarelo":1, "verde":2}
-        self.intervals = {"vermelho": self.interval, "verde":self.interval, "amarelo":4}
-        self._state_changed = threading.Event()
-
+        self.intervals = {"vermelho": self.interval, "verde":self.interval, "amarelo":30}
 
         self._thread_semaphore = threading.Thread(target=self._semaphore_loop, daemon=True)
     
@@ -26,7 +24,7 @@ class Semaphore(DeviceClient):
         reading.timestamp = int(time.time())
         return reading
     
-    def _update_state(self):
+    def _next_state(self):
         match self.state:
             case "vermelho":
                 self.state = "amarelo"
@@ -43,15 +41,14 @@ class Semaphore(DeviceClient):
             with self.state_lock:
                 self.state = command_str
             print(f"🚦 [{self.sensor_id}] Semáforo atualizado:", self.state)
-            self._state_changed.set()
     
     def _semaphore_loop(self):
         while self.running:
             with self.state_lock:
-                self._update_state()
+                self._next_state()
+                print("MUDOU COR SEMAFORO: ", self.state)
                 sleep_time = self.intervals[self.state]
-            self._state_changed.wait(timeout=sleep_time)
-            self._state_changed.clear()
+            time.sleep(sleep_time)
 
     def _monitor_loop(self):
         super()._monitor_loop()

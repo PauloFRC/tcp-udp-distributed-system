@@ -1,5 +1,6 @@
 /usr/local/bin/protoc --version
 /usr/local/bin/protoc --python_out=. src/proto/sensor_data.proto
+python -m grpc_tools.protoc -Isrc --python_out=src --grpc_python_out=src src/proto/sensor_data.proto
 
 gnome-terminal -- bash -c "python3 src/run.py gateway; exec bash"
 

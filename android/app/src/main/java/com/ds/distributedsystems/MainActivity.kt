@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -153,7 +155,7 @@ class MainActivity : ComponentActivity() {
                     } catch (e: Exception) {
                         status = "Error: ${e.message}"
                     }
-                    delay(5000)
+                    delay(3000)
                 }
             }
         }
@@ -201,14 +203,17 @@ class MainActivity : ComponentActivity() {
                         allDevices = emptyList()
                         selectedDeviceId = null
                     }
-                    delay(10000L) // Atualiza a cada 10 segundos
+                    delay(3000L) // Atualiza a cada 3 segundos
                 }
             }
         }
 
+        val scrollState = rememberScrollState()
+
         Column(
             modifier = modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

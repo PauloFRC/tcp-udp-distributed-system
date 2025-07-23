@@ -81,3 +81,16 @@ message GatewayResponse {
     }
 }
 
+message CommandResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+service DeviceControl {
+    rpc SendCommand(CommandRequest) returns (CommandResponse);
+}
+
+message CommandRequest {
+    string command = 1;
+    map<string, string> params = 2;
+}

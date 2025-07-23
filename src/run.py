@@ -25,11 +25,11 @@ if __name__ == "__main__":
         manager.add_sensor(TemperatureSensorClient("TEMP-03", "Aldeota", interval=35))
         manager.add_sensor(HumiditySensorClient("HUM-003", "Aldeota", interval=35))
 
-        manager.add_sensor(AlarmSensor("ALARM-01", "Banco de Brasil", interval=30))
-        manager.add_sensor(AlarmSensor("ALARM-02", "Múseu de Arte", interval=35))
+        manager.add_sensor(AlarmSensor("ALARM-01", "Banco de Brasil", interval=10))
+        manager.add_sensor(AlarmSensor("ALARM-02", "Múseu de Arte", interval=15))
 
-        manager.add_sensor(Semaphore("SEM-01", "Rua Maria com rua João", interval=40))
-        manager.add_sensor(Semaphore("SEM-02", "Rua Leonardo com rua Pedro", interval=5))
+        manager.add_sensor(Semaphore("SEM-01", "Rua Maria com rua João", interval=45))
+        manager.add_sensor(Semaphore("SEM-02", "Rua Leonardo com rua Pedro", interval=40))
         
         try:
             manager.start_all_sensors()
