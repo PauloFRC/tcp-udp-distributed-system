@@ -3,7 +3,8 @@ import struct
 import threading
 import time
 
-from jwt import DecodeError
+#from jwt import DecodeError
+from jwt.exceptions import JWSDecodeError
 from proto.sensor_data_pb2 import Response, DeviceCommand, GatewayAnnouncement
 from proto.sensor_data_pb2 import SensorReading
 from devices.device import Device
@@ -24,9 +25,6 @@ class DeviceControlServicer(sensor_data_pb2_grpc.DeviceControlServicer):
     def SendTcpData(self, request, context):
         self.device_client.send_tcp_data()
         return sensor_data_pb2.CommandResponse(success=True, message="Dados TCP enviados")
-
-    def SetSemaphoreLight(self, request, context):
-        return self.device_client.SetSemaphoreLight(request, context)
 
 class DeviceClient(Device):
     def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791, grpc_port=0):
@@ -81,7 +79,7 @@ class DeviceClient(Device):
                 print(f"✅ [{self.sensor_id}] Gateway encontrado em {self.tcp_gateway_address}")
             except socket.timeout:
                 continue
-            except DecodeError:
+            except JWSDecodeError:
                 print(f"⚠️  [{self.sensor_id}] Recebido pacote de descoberta malformado. Ignorando.")
                 continue
             except Exception as e:
@@ -101,9 +99,8 @@ class DeviceClient(Device):
     def _generate_reading(self) -> SensorReading:
         pass
 
-    def handle_command(self, command: DeviceCommand):
-        command_str = command.command
-        print(f"📥 [{self.sensor_id}] Recebeu o comando: '{command_str}'")
+    def handle_command(self, command: str):
+        print(f"📥 [{self.sensor_id}] Recebeu o comando: '{command}'")
 
     def send_tcp_data(self):
         self.grpc_server_started.wait() 

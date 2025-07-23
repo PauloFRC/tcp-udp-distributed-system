@@ -33,8 +33,10 @@ class Semaphore(DeviceClient):
             case "verde": 
                 self.state = "vermelho"
     
-    def handle_command(self, command: DeviceCommand):
+    def handle_command(self, command: str):
         super().handle_command(command)
+        if command in ["vermelho", "amarelo", "verde"]:
+            self.SetSemaphoreLight(command, None) # Pass command directly, context is not used here
 
     def SetSemaphoreLight(self, request, context):
         with self.state_lock:

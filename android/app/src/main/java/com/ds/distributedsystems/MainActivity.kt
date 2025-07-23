@@ -49,26 +49,33 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ds.distributedsystems.SensorData.AppRequest
-import com.ds.distributedsystems.SensorData.DeviceType
-import com.ds.distributedsystems.SensorData.GatewayResponse
-import com.ds.distributedsystems.SensorData.SensorReading
 import com.ds.distributedsystems.ui.theme.DistributedSystemsTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.io.DataInputStream
-import java.io.DataOutputStream
-import java.net.Socket
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.google.gson.annotations.SerializedName
+import com.ds.distributedsystems.R
+
+data class Device(
+    val sensor_id: String,
+    val value: Double,
+    val unit: String,
+    val timestamp: Long,
+    @SerializedName("sensor_type") val sensorType: String,
+    val location: String,
+    val metadata: Map<String, String>
+)
+
+data class CommandPayload(
+    val command: String,
+    val params: Map<String, Any>? = null
+)
 
 class MainActivity : ComponentActivity() {
-    private val gatewayHost = "10.0.2.2"
-    private val gatewayPort = 8082
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -88,7 +95,7 @@ class MainActivity : ComponentActivity() {
         val value: Double? = null,
         val unit: String = "",
         val timestamp: Long? = null,
-        val sensorType: DeviceType? = null
+        val sensorType: String = "UNKNOWN"
     )
 
     @Composable
@@ -99,13 +106,12 @@ class MainActivity : ComponentActivity() {
         var temperatureData by remember { mutableStateOf(DeviceData()) }
         var humidityData by remember { mutableStateOf(DeviceData()) }
 
-        val allSensorReadings = remember { mutableStateMapOf<String, DeviceData>() }
-        var allDevices by remember { mutableStateOf<List<SensorReading>>(emptyList()) }
+        var allDevices by remember { mutableStateOf<List<Device>>(emptyList()) }
         var selectedDeviceId by remember { mutableStateOf<String?>(null) }
 
         val activeAlarms = remember { mutableStateMapOf<String, String>() }
-
         var status by remember { mutableStateOf("Esperando pelos dados...") }
+        val apiService = RetrofitClient.instance
 
         LaunchedEffect(selectedLocation) {
             temperatureData = DeviceData()
@@ -115,47 +121,25 @@ class MainActivity : ComponentActivity() {
             launch(Dispatchers.IO) {
                 while (isActive) {
                     try {
-                        val request = AppRequest.newBuilder()
-                            .setType(AppRequest.RequestType.STREAM_LOCATION_DATA)
-                            .setStreamRequest(AppRequest.StreamLocationRequest.newBuilder().setLocationName(selectedLocation))
-                            .build()
-
-                        Socket(gatewayHost, gatewayPort).use { socket ->
-                            val output = DataOutputStream(socket.outputStream)
-                            val input = DataInputStream(socket.inputStream)
-
-                            val requestBytes = request.toByteArray()
-                            output.writeInt(requestBytes.size)
-                            output.write(requestBytes)
-                            output.flush()
-
-                            while (isActive) {
-                                val len = input.readInt()
-                                if (len == 0) break
-                                val responseBytes = ByteArray(len)
-                                input.readFully(responseBytes)
-                                val response = GatewayResponse.parseFrom(responseBytes)
-
-                                if (response.type == GatewayResponse.ResponseType.SINGLE_READING) {
-                                    val reading = response.singleReading
-                                    val deviceData = DeviceData(reading.sensorId, reading.value, reading.unit, reading.timestamp, reading.sensorType)
-                                    allSensorReadings[reading.sensorId] = deviceData
-
-                                    if (reading.location == selectedLocation) {
-                                        when (reading.sensorType) {
-                                            DeviceType.TEMPERATURE -> temperatureData = deviceData
-                                            DeviceType.HUMIDITY -> humidityData = deviceData
-                                            else -> {}
-                                        }
-                                    }
+                        val response = apiService.getDevicesByLocation(selectedLocation)
+                        if (response.isSuccessful) {
+                            val devicesInLocation = response.body() ?: emptyList()
+                            devicesInLocation.forEach { device ->
+                                val deviceData = DeviceData(device.sensor_id, device.value, device.unit, device.timestamp, device.sensorType)
+                                when (device.sensorType) {
+                                    "TEMPERATURE" -> temperatureData = deviceData
+                                    "HUMIDITY" -> humidityData = deviceData
+                                    else -> {}
                                 }
                             }
                             status = "Última atualização: ${formatTimestamp(System.currentTimeMillis())}"
+                        } else {
+                            status = "Erro ao buscar dados: ${response.code()}"
                         }
                     } catch (e: Exception) {
                         status = "Error: ${e.message}"
                     }
-                    delay(3000)
+                    delay(3000) // Poll every 3 seconds
                 }
             }
         }
@@ -164,46 +148,32 @@ class MainActivity : ComponentActivity() {
             launch(Dispatchers.IO) {
                 while(isActive) {
                     try {
-                        val request = AppRequest.newBuilder().setType(AppRequest.RequestType.LIST_DEVICES).build()
-                        Socket(gatewayHost, gatewayPort).use { socket ->
-                            val output = DataOutputStream(socket.outputStream)
-                            val input = DataInputStream(socket.inputStream)
+                        val response = apiService.getDevices()
+                        if (response.isSuccessful) {
+                            allDevices = response.body() ?: emptyList()
 
-                            val requestBytes = request.toByteArray()
-                            output.writeInt(requestBytes.size)
-                            output.write(requestBytes)
-                            output.flush()
-
-                            val len = input.readInt()
-                            if (len > 0) {
-                                val responseBytes = ByteArray(len)
-                                input.readFully(responseBytes)
-                                val response = GatewayResponse.parseFrom(responseBytes)
-                                if (response.type == GatewayResponse.ResponseType.DEVICE_LIST) {
-                                    allDevices = response.deviceList.devicesList
-
-                                    // Checa port alarmes
-                                    val newActiveAlarms = mutableMapOf<String, String>()
-                                    response.deviceList.devicesList.forEach { device ->
-                                        if (device.sensorType == DeviceType.ALARM && device.value == 1.0) {
-                                            newActiveAlarms[device.sensorId] = device.location
-                                        }
-                                    }
-                                    activeAlarms.clear()
-                                    activeAlarms.putAll(newActiveAlarms)
-
-                                    if (selectedDeviceId != null && allDevices.none { it.sensorId == selectedDeviceId }) {
-                                        selectedDeviceId = null
-                                    }
+                            val newActiveAlarms = mutableMapOf<String, String>()
+                            allDevices.forEach { device ->
+                                if (device.sensorType == "ALARM" && device.value == 1.0) {
+                                    newActiveAlarms[device.sensor_id] = device.location
                                 }
                             }
+                            activeAlarms.clear()
+                            activeAlarms.putAll(newActiveAlarms)
+
+                            if (selectedDeviceId != null && allDevices.none { it.sensor_id == selectedDeviceId }) {
+                                selectedDeviceId = null
+                            }
+                        } else {
+                            allDevices = emptyList()
+                            selectedDeviceId = null
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
                         allDevices = emptyList()
                         selectedDeviceId = null
                     }
-                    delay(3000L) // Atualiza a cada 3 segundos
+                    delay(3000L) // Poll every 3 seconds
                 }
             }
         }
@@ -264,17 +234,12 @@ class MainActivity : ComponentActivity() {
             )
 
             AnimatedVisibility(visible = selectedDeviceId != null) {
-                val selectedDevice = allDevices.find { it.sensorId == selectedDeviceId }
+                val selectedDevice = allDevices.find { it.sensor_id == selectedDeviceId }
                 selectedDevice?.let {
-                    DeviceReadingComponent(
-                        deviceInfo = it,
-                        latestUdpData = allSensorReadings[it.sensorId]
-                    )
+                    DeviceReadingComponent(deviceInfo = it)
                 }
             }
-
             Spacer(modifier = Modifier.weight(1f))
-
             Text(
                 text = status,
                 style = MaterialTheme.typography.bodySmall,
@@ -311,7 +276,6 @@ class MainActivity : ComponentActivity() {
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
-                        // Display the locations of the active alarms
                         activeAlarms.values.distinct().forEach { location ->
                             Text(
                                 text = "- Incidente em: $location",
@@ -325,10 +289,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun DeviceSelector(
-        devices: List<SensorReading>,
+        devices: List<Device>,
         selectedDeviceId: String?,
         onDeviceSelected: (String) -> Unit
     ) {
@@ -347,9 +312,9 @@ class MainActivity : ComponentActivity() {
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 devices.forEach { deviceInfo ->
                     DropdownMenuItem(
-                        text = { Text(deviceInfo.sensorId) },
+                        text = { Text(deviceInfo.sensor_id) },
                         onClick = {
-                            onDeviceSelected(deviceInfo.sensorId)
+                            onDeviceSelected(deviceInfo.sensor_id)
                             expanded = false
                         }
                     )
@@ -359,45 +324,29 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun DeviceReadingComponent(deviceInfo: SensorReading, latestUdpData: DeviceData?) {
+    fun DeviceReadingComponent(deviceInfo: Device) {
         val scope = rememberCoroutineScope()
-        var tcpData by remember { mutableStateOf<DeviceData?>(null) }
+        var onDemandData by remember { mutableStateOf<Device?>(null) }
         var requestStatus by remember { mutableStateOf("") }
+        val apiService = RetrofitClient.instance
 
-        LaunchedEffect(deviceInfo.sensorId) {
-            tcpData = null
+        LaunchedEffect(deviceInfo.sensor_id) {
+            onDemandData = null
             requestStatus = ""
         }
 
-        // Usa ultima dado TCP como display, se não houver usa ultima atualização
-        val displayData = tcpData ?: latestUdpData ?: DeviceData(deviceInfo.sensorId, deviceInfo.value,
-            deviceInfo.unit, deviceInfo.timestamp, deviceInfo.sensorType)
+        val displayDevice = onDemandData ?: deviceInfo
 
         fun sendDeviceCommand(command: String) {
             scope.launch(Dispatchers.IO) {
                 requestStatus = "Enviando '$command'..."
                 try {
-                    val commandProto = SensorData.DeviceCommand.newBuilder().setTargetId(deviceInfo.sensorId).setCommand(command).build()
-                    val request = AppRequest.newBuilder().setType(AppRequest.RequestType.QUEUE_COMMAND).setCommandRequest(commandProto).build()
-
-                    Socket(gatewayHost, gatewayPort).use { socket ->
-                        val output = DataOutputStream(socket.outputStream)
-                        val input = DataInputStream(socket.inputStream)
-
-                        val requestBytes = request.toByteArray()
-                        output.writeInt(requestBytes.size)
-                        output.write(requestBytes)
-                        output.flush()
-
-                        val len = input.readInt()
-                        if (len > 0) {
-                            val responseBytes = ByteArray(len)
-                            input.readFully(responseBytes)
-                            val response = GatewayResponse.parseFrom(responseBytes)
-                            if (response.type == GatewayResponse.ResponseType.COMMAND_CONFIRMATION) {
-                                requestStatus = response.confirmationMessage
-                            }
-                        }
+                    val payload = CommandPayload(command)
+                    val response = apiService.sendCommand(displayDevice.sensor_id, payload)
+                    requestStatus = if (response.isSuccessful) {
+                        response.body()?.get("message") ?: "Comando enviado com sucesso."
+                    } else {
+                        "Erro: ${response.code()}"
                     }
                 } catch (e: Exception) {
                     requestStatus = "Erro: ${e.message}"
@@ -411,16 +360,16 @@ class MainActivity : ComponentActivity() {
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(Modifier.padding(16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = deviceInfo.sensorId, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(text = displayDevice.sensor_id, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
 
                 Text(
-                    "${displayData.value} ${displayData.unit}",
+                    "${displayDevice.value} ${displayDevice.unit}",
                     style = MaterialTheme.typography.headlineMedium,
-                    color = if (tcpData != null) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                    color = if (onDemandData != null) MaterialTheme.colorScheme.primary else LocalContentColor.current
                 )
                 Text(
-                    "em ${formatTimestamp(displayData.timestamp)}",
+                    "em ${formatTimestamp(displayDevice.timestamp)}",
                     style = MaterialTheme.typography.bodySmall
                 )
 
@@ -430,60 +379,39 @@ class MainActivity : ComponentActivity() {
                     scope.launch(Dispatchers.IO) {
                         requestStatus = "Requisitando dados..."
                         try {
-                            val onDemandReq = AppRequest.OnDemandRequest.newBuilder().setDeviceId(deviceInfo.sensorId).build()
-                            val request = AppRequest.newBuilder().setType(AppRequest.RequestType.GET_ON_DEMAND_DATA).setOnDemandRequest(onDemandReq).build()
-
-                            Socket(gatewayHost, gatewayPort).use { socket ->
-                                val output = DataOutputStream(socket.outputStream)
-                                val input = DataInputStream(socket.inputStream)
-
-                                val requestBytes = request.toByteArray()
-                                output.writeInt(requestBytes.size)
-                                output.write(requestBytes)
-                                output.flush()
-
-                                val len = input.readInt()
-                                if (len > 0) {
-                                    val responseBytes = ByteArray(len)
-                                    input.readFully(responseBytes)
-                                    val response = GatewayResponse.parseFrom(responseBytes)
-                                    if (response.type == GatewayResponse.ResponseType.SINGLE_READING) {
-                                        val reading = response.singleReading
-                                        tcpData = DeviceData(reading.sensorId, reading.value, reading.unit, reading.timestamp, reading.sensorType)
-                                        requestStatus = "Leitura TCP atualizada"
-                                    }
+                            val response = apiService.getOnDemandData(deviceInfo.sensor_id)
+                            if (response.isSuccessful) {
+                                val device = response.body()
+                                if (device != null) {
+                                    onDemandData = device
+                                    requestStatus = "Leitura atualizada"
                                 } else {
-                                    requestStatus = "Timeout no gateway."
+                                    requestStatus = "Dispositivo não retornou dados."
                                 }
+                            } else {
+                                requestStatus = "Timeout ou erro no gateway."
                             }
                         } catch (e: Exception) {
                             requestStatus = "Erro: ${e.message}"
                         }
                     }
                 }) {
-                    Text("Requisitar leitura (TCP)")
+                    Text("Requisitar Leitura")
                 }
 
-                when (displayData.sensorType) {
-                    DeviceType.SEMAPHORE -> {
+                when (displayDevice.sensorType) {
+                    "SEMAPHORE" -> {
                         Button(onClick = { sendDeviceCommand("vermelho") }) {
                             Text("Fechar semáforo")
                         }
                     }
-
-                    DeviceType.LAMP_POST -> {
+                    "LAMP_POST" -> {
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Button(onClick = { sendDeviceCommand("on") }) { Text("ON") }
                             Button(onClick = { sendDeviceCommand("off") }) { Text("OFF") }
                         }
                     }
-
-                    DeviceType.UNKNOWN -> {}
-                    DeviceType.TEMPERATURE -> {}
-                    DeviceType.HUMIDITY -> {}
-                    DeviceType.ALARM -> {}
-                    DeviceType.UNRECOGNIZED -> {}
-                    null -> {}
+                    else -> {}
                 }
 
                 if (requestStatus.isNotEmpty()) {
@@ -568,10 +496,9 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
     private fun formatTimestamp(timestamp: Long?): String {
         if (timestamp == null) return "N/A"
         val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-        return sdf.format(Date(timestamp))
+        return sdf.format(Date(timestamp * 1000))
     }
 }

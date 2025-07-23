@@ -54,9 +54,9 @@ class Gateway:
             if command_str == "send_tcp_data":
                 request = sensor_data_pb2.Empty()
                 response = stub.SendTcpData(request)
-            elif command_str in ["vermelho", "amarelo", "verde"]:
-                request = sensor_data_pb2.SemaphoreLightStateRequest(state=command_str)
-                response = stub.SetSemaphoreLight(request)
+            #elif command_str in ["vermelho", "amarelo", "verde"]:
+            #    request = sensor_data_pb2.SemaphoreLightStateRequest(state=command_str)
+            #    response = stub.SetSemaphoreLight(request)
             else:
                 request = sensor_data_pb2.CommandRequest(command=command_str, params=params)
                 response = stub.SendCommand(request)
@@ -208,105 +208,6 @@ class Gateway:
         while self.running:
             sock.sendto(message, (self.discovery_group, self.discovery_port))
             time.sleep(10) # Anuncia a cada 10s
-
-    def run_status_query_server(self):
-        listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        listen_socket.bind((self.host, self.status_query_port))
-        listen_socket.listen(5)
-        print(f"📱 Servidor de consulta de status ouvindo na porta {self.status_query_port}")
-
-        while self.running:
-            conn, addr = listen_socket.accept()
-            query_handler_thread = threading.Thread(
-                target=self.handle_status_query_connection,
-                args=(conn, addr)
-            )
-            query_handler_thread.daemon = True
-            query_handler_thread.start()
-
-    def handle_status_query_connection(self, conn, addr):
-        try:
-            length_data = conn.recv(4)
-            if not length_data: return
-            msg_length = struct.unpack('!I', length_data)[0]
-
-            request_data = b''
-            while len(request_data) < msg_length:
-                chunk = conn.recv(msg_length - len(request_data))
-                if not chunk: break
-                request_data += chunk
-            
-            app_request = AppRequest()
-            app_request.ParseFromString(request_data)
-
-            print(f"📱 Cliente no endereço {addr} enviou requisição: {AppRequest.RequestType.Name(app_request.type)}")
-
-            if app_request.type == AppRequest.RequestType.LIST_DEVICES:
-                response = GatewayResponse(type=GatewayResponse.ResponseType.DEVICE_LIST)
-                with self.sensor_data_lock:
-                    response.device_list.devices.extend(self.sensor_data.values())
-                
-                serialized_response = response.SerializeToString()
-                conn.sendall(struct.pack('!I', len(serialized_response)) + serialized_response)
-
-            elif app_request.type == AppRequest.RequestType.GET_ON_DEMAND_DATA:
-                sensor_id = app_request.on_demand_request.device_id
-                last_timestamp = self.sensor_data.get(sensor_id, None)
-                last_timestamp = last_timestamp.timestamp if last_timestamp else 0
-                
-                command_response = self.send_command_to_device(sensor_id, "send_tcp_data")
-
-                if command_response and command_response.success:
-                    new_reading = None
-                    timeout = time.time() + 15
-                    while time.time() < timeout:
-                        current_reading = self.sensor_data.get(sensor_id)
-                        if current_reading and current_reading.timestamp > last_timestamp:
-                            new_reading = current_reading
-                            break
-                        time.sleep(0.1)
-
-                    if new_reading:
-                        response = GatewayResponse(type=GatewayResponse.ResponseType.SINGLE_READING)
-                        response.single_reading.CopyFrom(new_reading)
-                        serialized_response = response.SerializeToString()
-                        conn.sendall(struct.pack('!I', len(serialized_response)) + serialized_response)
-                    else:
-                        conn.sendall(struct.pack('!I', 0))
-                else:
-                    conn.sendall(struct.pack('!I', 0))
-
-            elif app_request.type == AppRequest.RequestType.QUEUE_COMMAND:
-                command_req = app_request.command_request
-                command_response = self.send_command_to_device(command_req.target_id, command_req.command)
-                
-                response = GatewayResponse(type=GatewayResponse.ResponseType.COMMAND_CONFIRMATION)
-                if command_response and command_response.success:
-                    response.confirmation_message = f"Comando '{command_req.command}' enviado para {command_req.target_id}. Resposta: {command_response.message}"
-                else:
-                    response.confirmation_message = f"Falha ao enviar comando '{command_req.command}' para {command_req.target_id}."
-                serialized_response = response.SerializeToString()
-                conn.sendall(struct.pack('!I', len(serialized_response)) + serialized_response)
-
-            elif app_request.type == AppRequest.RequestType.STREAM_LOCATION_DATA:
-                location = app_request.stream_request.location_name
-                with self.sensor_data_lock:
-                    readings = [r for r in self.sensor_data.values() if r.location == location]
-                
-                for reading in readings:
-                    response = GatewayResponse(type=GatewayResponse.ResponseType.SINGLE_READING)
-                    response.single_reading.CopyFrom(reading)
-                    serialized_response = response.SerializeToString()
-                    conn.sendall(struct.pack('!I', len(serialized_response)) + serialized_response)
-                
-                conn.sendall(struct.pack('!I', 0))
-
-        except Exception as e:
-            print(f"Erro no endereço {addr}: {e}")
-        finally:
-            print(f"📱 Fechando conexão com {addr}.")
-            conn.close()
     
     def start(self):
         self.running = True
@@ -325,18 +226,16 @@ class Gateway:
         discovery_thread.daemon = True
         discovery_thread.start()
 
-        status_query_thread = threading.Thread(target=self.run_status_query_server)
-        status_query_thread.daemon = True
-        status_query_thread.start()
-
         print("=" * 60)
 
+        '''
         try:
             while self.running:
                 pass
         except KeyboardInterrupt:
             print("\n🛑 Desligando gateway")
             self.running = False
+            '''
     
     def get_sensor_status(self):
         with self.sensor_data_lock:
