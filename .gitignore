@@ -16,3 +16,9 @@
 local.properties
 .idea/
 *.pyc
+.venv/
+venv/
+*.kotlin_module
+*.kotlin_metadata
+build/
+out/
