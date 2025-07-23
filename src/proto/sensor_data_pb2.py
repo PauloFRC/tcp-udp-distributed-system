@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17proto/sensor_data.proto\"\xe7\x01\n\rSensorReading\x12\x11\n\tsensor_id\x18\x01 \x01(\t\x12\x10\n\x08location\x18\x02 \x01(\t\x12 \n\x0bsensor_type\x18\x03 \x01(\x0e\x32\x0b.DeviceType\x12\r\n\x05value\x18\x04 \x01(\x01\x12\x0c\n\x04unit\x18\x05 \x01(\t\x12\x11\n\ttimestamp\x18\x06 \x01(\x03\x12.\n\x08metadata\x18\x07 \x03(\x0b\x32\x1c.SensorReading.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"?\n\x08Response\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\"c\n\x13GatewayAnnouncement\x12\x12\n\ngateway_ip\x18\x01 \x01(\t\x12\x10\n\x08tcp_port\x18\x02 \x01(\r\x12\x10\n\x08udp_port\x18\x03 \x01(\r\x12\x14\n\x0c\x63ommand_port\x18\x04 \x01(\r\"F\n\rDeviceCommand\x12\x11\n\ttarget_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63ommand\x18\x02 \x01(\t\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\"\x9c\x03\n\nAppRequest\x12%\n\x04type\x18\x01 \x01(\x0e\x32\x17.AppRequest.RequestType\x12;\n\x0estream_request\x18\x02 \x01(\x0b\x32!.AppRequest.StreamLocationRequestH\x00\x12\x38\n\x11on_demand_request\x18\x03 \x01(\x0b\x32\x1b.AppRequest.OnDemandRequestH\x00\x12)\n\x0f\x63ommand_request\x18\x04 \x01(\x0b\x32\x0e.DeviceCommandH\x00\x1a$\n\x0fOnDemandRequest\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x1a.\n\x15StreamLocationRequest\x12\x15\n\rlocation_name\x18\x01 \x01(\t\"d\n\x0bRequestType\x12\x10\n\x0cLIST_DEVICES\x10\x00\x12\x18\n\x14STREAM_LOCATION_DATA\x10\x01\x12\x16\n\x12GET_ON_DEMAND_DATA\x10\x02\x12\x11\n\rQUEUE_COMMAND\x10\x03\x42\t\n\x07payload\"\xc5\x02\n\x0fGatewayResponse\x12+\n\x04type\x18\x01 \x01(\x0e\x32\x1d.GatewayResponse.ResponseType\x12\x32\n\x0b\x64\x65vice_list\x18\x02 \x01(\x0b\x32\x1b.GatewayResponse.DeviceListH\x00\x12(\n\x0esingle_reading\x18\x03 \x01(\x0b\x32\x0e.SensorReadingH\x00\x12\x1e\n\x14\x63onfirmation_message\x18\x04 \x01(\tH\x00\x1a-\n\nDeviceList\x12\x1f\n\x07\x64\x65vices\x18\x01 \x03(\x0b\x32\x0e.SensorReading\"M\n\x0cResponseType\x12\x0f\n\x0b\x44\x45VICE_LIST\x10\x00\x12\x12\n\x0eSINGLE_READING\x10\x01\x12\x18\n\x14\x43OMMAND_CONFIRMATION\x10\x02\x42\t\n\x07payload\"3\n\x0f\x43ommandResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"}\n\x0e\x43ommandRequest\x12\x0f\n\x07\x63ommand\x18\x01 \x01(\t\x12+\n\x06params\x18\x02 \x03(\x0b\x32\x1b.CommandRequest.ParamsEntry\x1a-\n\x0bParamsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01*a\n\nDeviceType\x12\x0b\n\x07UNKNOWN\x10\x00\x12\x0f\n\x0bTEMPERATURE\x10\x01\x12\x0c\n\x08HUMIDITY\x10\x02\x12\t\n\x05\x41LARM\x10\x03\x12\r\n\tLAMP_POST\x10\x04\x12\r\n\tSEMAPHORE\x10\x05\x32\x41\n\rDeviceControl\x12\x30\n\x0bSendCommand\x12\x0f.CommandRequest\x1a\x10.CommandResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17proto/sensor_data.proto\"\xe7\x01\n\rSensorReading\x12\x11\n\tsensor_id\x18\x01 \x01(\t\x12\x10\n\x08location\x18\x02 \x01(\t\x12 \n\x0bsensor_type\x18\x03 \x01(\x0e\x32\x0b.DeviceType\x12\r\n\x05value\x18\x04 \x01(\x01\x12\x0c\n\x04unit\x18\x05 \x01(\t\x12\x11\n\ttimestamp\x18\x06 \x01(\x03\x12.\n\x08metadata\x18\x07 \x03(\x0b\x32\x1c.SensorReading.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"?\n\x08Response\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\"c\n\x13GatewayAnnouncement\x12\x12\n\ngateway_ip\x18\x01 \x01(\t\x12\x10\n\x08tcp_port\x18\x02 \x01(\r\x12\x10\n\x08udp_port\x18\x03 \x01(\r\x12\x14\n\x0c\x63ommand_port\x18\x04 \x01(\r\"F\n\rDeviceCommand\x12\x11\n\ttarget_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63ommand\x18\x02 \x01(\t\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\"\x9c\x03\n\nAppRequest\x12%\n\x04type\x18\x01 \x01(\x0e\x32\x17.AppRequest.RequestType\x12;\n\x0estream_request\x18\x02 \x01(\x0b\x32!.AppRequest.StreamLocationRequestH\x00\x12\x38\n\x11on_demand_request\x18\x03 \x01(\x0b\x32\x1b.AppRequest.OnDemandRequestH\x00\x12)\n\x0f\x63ommand_request\x18\x04 \x01(\x0b\x32\x0e.DeviceCommandH\x00\x1a$\n\x0fOnDemandRequest\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x1a.\n\x15StreamLocationRequest\x12\x15\n\rlocation_name\x18\x01 \x01(\t\"d\n\x0bRequestType\x12\x10\n\x0cLIST_DEVICES\x10\x00\x12\x18\n\x14STREAM_LOCATION_DATA\x10\x01\x12\x16\n\x12GET_ON_DEMAND_DATA\x10\x02\x12\x11\n\rQUEUE_COMMAND\x10\x03\x42\t\n\x07payload\"\xc5\x02\n\x0fGatewayResponse\x12+\n\x04type\x18\x01 \x01(\x0e\x32\x1d.GatewayResponse.ResponseType\x12\x32\n\x0b\x64\x65vice_list\x18\x02 \x01(\x0b\x32\x1b.GatewayResponse.DeviceListH\x00\x12(\n\x0esingle_reading\x18\x03 \x01(\x0b\x32\x0e.SensorReadingH\x00\x12\x1e\n\x14\x63onfirmation_message\x18\x04 \x01(\tH\x00\x1a-\n\nDeviceList\x12\x1f\n\x07\x64\x65vices\x18\x01 \x03(\x0b\x32\x0e.SensorReading\"M\n\x0cResponseType\x12\x0f\n\x0b\x44\x45VICE_LIST\x10\x00\x12\x12\n\x0eSINGLE_READING\x10\x01\x12\x18\n\x14\x43OMMAND_CONFIRMATION\x10\x02\x42\t\n\x07payload\"3\n\x0f\x43ommandResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"\x07\n\x05\x45mpty\"+\n\x1aSemaphoreLightStateRequest\x12\r\n\x05state\x18\x01 \x01(\t\"}\n\x0e\x43ommandRequest\x12\x0f\n\x07\x63ommand\x18\x01 \x01(\t\x12+\n\x06params\x18\x02 \x03(\x0b\x32\x1b.CommandRequest.ParamsEntry\x1a-\n\x0bParamsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01*a\n\nDeviceType\x12\x0b\n\x07UNKNOWN\x10\x00\x12\x0f\n\x0bTEMPERATURE\x10\x01\x12\x0c\n\x08HUMIDITY\x10\x02\x12\t\n\x05\x41LARM\x10\x03\x12\r\n\tLAMP_POST\x10\x04\x12\r\n\tSEMAPHORE\x10\x05\x32\xae\x01\n\rDeviceControl\x12\x30\n\x0bSendCommand\x12\x0f.CommandRequest\x1a\x10.CommandResponse\x12\'\n\x0bSendTcpData\x12\x06.Empty\x1a\x10.CommandResponse\x12\x42\n\x11SetSemaphoreLight\x12\x1b.SemaphoreLightStateRequest\x1a\x10.CommandResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,8 +35,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SENSORREADING_METADATAENTRY']._serialized_options = b'8\001'
   _globals['_COMMANDREQUEST_PARAMSENTRY']._loaded_options = None
   _globals['_COMMANDREQUEST_PARAMSENTRY']._serialized_options = b'8\001'
-  _globals['_DEVICETYPE']._serialized_start=1422
-  _globals['_DEVICETYPE']._serialized_end=1519
+  _globals['_DEVICETYPE']._serialized_start=1476
+  _globals['_DEVICETYPE']._serialized_end=1573
   _globals['_SENSORREADING']._serialized_start=28
   _globals['_SENSORREADING']._serialized_end=259
   _globals['_SENSORREADING_METADATAENTRY']._serialized_start=212
@@ -63,10 +63,14 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GATEWAYRESPONSE_RESPONSETYPE']._serialized_end=1229
   _globals['_COMMANDRESPONSE']._serialized_start=1242
   _globals['_COMMANDRESPONSE']._serialized_end=1293
-  _globals['_COMMANDREQUEST']._serialized_start=1295
-  _globals['_COMMANDREQUEST']._serialized_end=1420
-  _globals['_COMMANDREQUEST_PARAMSENTRY']._serialized_start=1375
-  _globals['_COMMANDREQUEST_PARAMSENTRY']._serialized_end=1420
-  _globals['_DEVICECONTROL']._serialized_start=1521
-  _globals['_DEVICECONTROL']._serialized_end=1586
+  _globals['_EMPTY']._serialized_start=1295
+  _globals['_EMPTY']._serialized_end=1302
+  _globals['_SEMAPHORELIGHTSTATEREQUEST']._serialized_start=1304
+  _globals['_SEMAPHORELIGHTSTATEREQUEST']._serialized_end=1347
+  _globals['_COMMANDREQUEST']._serialized_start=1349
+  _globals['_COMMANDREQUEST']._serialized_end=1474
+  _globals['_COMMANDREQUEST_PARAMSENTRY']._serialized_start=1429
+  _globals['_COMMANDREQUEST_PARAMSENTRY']._serialized_end=1474
+  _globals['_DEVICECONTROL']._serialized_start=1576
+  _globals['_DEVICECONTROL']._serialized_end=1750
 # @@protoc_insertion_point(module_scope)

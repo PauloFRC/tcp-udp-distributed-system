@@ -39,6 +39,16 @@ class DeviceControlStub(object):
                 request_serializer=proto_dot_sensor__data__pb2.CommandRequest.SerializeToString,
                 response_deserializer=proto_dot_sensor__data__pb2.CommandResponse.FromString,
                 _registered_method=True)
+        self.SendTcpData = channel.unary_unary(
+                '/DeviceControl/SendTcpData',
+                request_serializer=proto_dot_sensor__data__pb2.Empty.SerializeToString,
+                response_deserializer=proto_dot_sensor__data__pb2.CommandResponse.FromString,
+                _registered_method=True)
+        self.SetSemaphoreLight = channel.unary_unary(
+                '/DeviceControl/SetSemaphoreLight',
+                request_serializer=proto_dot_sensor__data__pb2.SemaphoreLightStateRequest.SerializeToString,
+                response_deserializer=proto_dot_sensor__data__pb2.CommandResponse.FromString,
+                _registered_method=True)
 
 
 class DeviceControlServicer(object):
@@ -50,12 +60,34 @@ class DeviceControlServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SendTcpData(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetSemaphoreLight(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DeviceControlServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'SendCommand': grpc.unary_unary_rpc_method_handler(
                     servicer.SendCommand,
                     request_deserializer=proto_dot_sensor__data__pb2.CommandRequest.FromString,
+                    response_serializer=proto_dot_sensor__data__pb2.CommandResponse.SerializeToString,
+            ),
+            'SendTcpData': grpc.unary_unary_rpc_method_handler(
+                    servicer.SendTcpData,
+                    request_deserializer=proto_dot_sensor__data__pb2.Empty.FromString,
+                    response_serializer=proto_dot_sensor__data__pb2.CommandResponse.SerializeToString,
+            ),
+            'SetSemaphoreLight': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetSemaphoreLight,
+                    request_deserializer=proto_dot_sensor__data__pb2.SemaphoreLightStateRequest.FromString,
                     response_serializer=proto_dot_sensor__data__pb2.CommandResponse.SerializeToString,
             ),
     }
@@ -85,6 +117,60 @@ class DeviceControl(object):
             target,
             '/DeviceControl/SendCommand',
             proto_dot_sensor__data__pb2.CommandRequest.SerializeToString,
+            proto_dot_sensor__data__pb2.CommandResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SendTcpData(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/DeviceControl/SendTcpData',
+            proto_dot_sensor__data__pb2.Empty.SerializeToString,
+            proto_dot_sensor__data__pb2.CommandResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetSemaphoreLight(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/DeviceControl/SetSemaphoreLight',
+            proto_dot_sensor__data__pb2.SemaphoreLightStateRequest.SerializeToString,
             proto_dot_sensor__data__pb2.CommandResponse.FromString,
             options,
             channel_credentials,

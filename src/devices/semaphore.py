@@ -1,6 +1,6 @@
 import threading
 import time
-from proto.sensor_data_pb2 import DeviceType, DeviceCommand
+from proto.sensor_data_pb2 import DeviceType, DeviceCommand, CommandResponse
 from proto.sensor_data_pb2 import SensorReading
 from devices.default_device import DeviceClient
 
@@ -35,18 +35,17 @@ class Semaphore(DeviceClient):
     
     def handle_command(self, command: DeviceCommand):
         super().handle_command(command)
-        command_str = command.command
-        # atualiza a cor do semáforo se for passada um comando para mudar de cor
-        if command_str in ("vermelho", "amarelo", "verde"):
-            with self.state_lock:
-                self.state = command_str
-            print(f"🚦 [{self.sensor_id}] Semáforo atualizado:", self.state)
+
+    def SetSemaphoreLight(self, request, context):
+        with self.state_lock:
+            self.state = request.state
+        print(f"🚦 [{self.sensor_id}] Semáforo atualizado:", self.state)
+        return CommandResponse(success=True, message=f"Luz do semáforo alterada para {request.state}")
     
     def _semaphore_loop(self):
         while self.running:
             with self.state_lock:
                 self._next_state()
-                print("MUDOU COR SEMAFORO: ", self.state)
                 sleep_time = self.intervals[self.state]
             time.sleep(sleep_time)
 

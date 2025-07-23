@@ -19,7 +19,14 @@ class DeviceControlServicer(sensor_data_pb2_grpc.DeviceControlServicer):
 
     def SendCommand(self, request, context):
         self.device_client.handle_command(request)
-        return sensor_data_pb2.CommandResponse(success=True, message="Command received")
+        return sensor_data_pb2.CommandResponse(success=True, message="Comando recebido")
+
+    def SendTcpData(self, request, context):
+        self.device_client.send_tcp_data()
+        return sensor_data_pb2.CommandResponse(success=True, message="Dados TCP enviados")
+
+    def SetSemaphoreLight(self, request, context):
+        return self.device_client.SetSemaphoreLight(request, context)
 
 class DeviceClient(Device):
     def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791, grpc_port=0):
@@ -97,10 +104,6 @@ class DeviceClient(Device):
     def handle_command(self, command: DeviceCommand):
         command_str = command.command
         print(f"📥 [{self.sensor_id}] Recebeu o comando: '{command_str}'")
-
-        # por padrão todo dispositivo tem o comportamento de enviar leitura se receber comando de envio
-        if command_str == "send":
-            self.send_tcp_data()
 
     def send_tcp_data(self):
         self.grpc_server_started.wait() 

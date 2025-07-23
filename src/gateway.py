@@ -51,8 +51,15 @@ class Gateway:
         try:
             channel = grpc.insecure_channel(f"{device_info['address']}:{device_info['grpc_port']}")
             stub = sensor_data_pb2_grpc.DeviceControlStub(channel)
-            request = sensor_data_pb2.CommandRequest(command=command_str, params=params)
-            response = stub.SendCommand(request)
+            if command_str == "send_tcp_data":
+                request = sensor_data_pb2.Empty()
+                response = stub.SendTcpData(request)
+            elif command_str in ["vermelho", "amarelo", "verde"]:
+                request = sensor_data_pb2.SemaphoreLightStateRequest(state=command_str)
+                response = stub.SetSemaphoreLight(request)
+            else:
+                request = sensor_data_pb2.CommandRequest(command=command_str, params=params)
+                response = stub.SendCommand(request)
             print(f"✅ Comando '{command_str}' enviado para '{device_id}'. Resposta: {response.message}")
             return response
         except grpc.RpcError as e:
@@ -83,7 +90,6 @@ class Gateway:
                     reading.ParseFromString(data)
                     
                     with self.devices_lock:
-                        print("ADICIONANDO DISPOSITIVO", reading.sensor_id)
                         self.devices[reading.sensor_id] = {
                             "address": addr[0],
                             "grpc_port": int(reading.metadata.get("grpc_port", 50051)) # Default port
@@ -129,7 +135,6 @@ class Gateway:
             reading.ParseFromString(data)
 
             with self.devices_lock:
-                print("ADICIONANDO DISPOSITIVO", reading.sensor_id)
                 self.devices[reading.sensor_id] = {
                     "address": addr[0],
                     "grpc_port": int(reading.metadata.get("grpc_port", 50051)) # Default port
@@ -250,7 +255,7 @@ class Gateway:
                 last_timestamp = self.sensor_data.get(sensor_id, None)
                 last_timestamp = last_timestamp.timestamp if last_timestamp else 0
                 
-                command_response = self.send_command_to_device(sensor_id, "send")
+                command_response = self.send_command_to_device(sensor_id, "send_tcp_data")
 
                 if command_response and command_response.success:
                     new_reading = None

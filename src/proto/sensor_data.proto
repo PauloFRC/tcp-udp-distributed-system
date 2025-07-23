@@ -86,8 +86,16 @@ message CommandResponse {
     string message = 2;
 }
 
+message Empty {}
+
+message SemaphoreLightStateRequest {
+    string state = 1;
+}
+
 service DeviceControl {
     rpc SendCommand(CommandRequest) returns (CommandResponse);
+    rpc SendTcpData(Empty) returns (CommandResponse);
+    rpc SetSemaphoreLight(SemaphoreLightStateRequest) returns (CommandResponse);
 }
 
 message CommandRequest {
