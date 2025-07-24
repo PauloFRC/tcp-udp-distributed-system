@@ -1,6 +1,5 @@
 import random
 import time
-from typing import Dict
 from proto.sensor_data_pb2 import SensorReading, DeviceType
 from devices.default_device import DeviceClient
 

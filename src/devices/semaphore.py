@@ -11,7 +11,7 @@ class Semaphore(DeviceClient):
         self.state = "verde"
         self.state_lock = threading.Lock()
         self.semaphore_color_map = {"vermelho":0, "amarelo":1, "verde":2}
-        self.intervals = {"vermelho": self.interval, "verde":self.interval, "amarelo":30}
+        self.intervals = {"vermelho": self.interval, "verde":self.interval, "amarelo":3}
 
         self._thread_semaphore = threading.Thread(target=self._semaphore_loop, daemon=True)
     
@@ -38,13 +38,21 @@ class Semaphore(DeviceClient):
         super().handle_command(command)
         command_str = command.command
         if command_str in ["vermelho", "amarelo", "verde"]:
-            self.SetSemaphoreLight(command_str, None)
+            self.SetSemaphoreLight(command_str)
+        if command_str.isdigit():
+            self.setSemaphoreInterval(command_str)
 
-    def SetSemaphoreLight(self, request, context):
+    def SetSemaphoreLight(self, request):
         with self.state_lock:
             self.state = request
         print(f"🚦 [{self.sensor_id}] Semáforo atualizado:", self.state)
         return CommandResponse(success=True, message=f"Luz do semáforo alterada para {request}")
+    
+    def setSemaphoreInterval(self, request):
+        self.intervals['vermelho'] = int(request)
+        self.intervals['verde'] = int(request)
+        print(f"🚦 [{self.sensor_id}] Intervalo do semáforo atualizado:", request, 'segundos')
+        return CommandResponse(success=True, message=f"Intervalo do semáforo atualizado para {request}s")
     
     def _semaphore_loop(self):
         while self.running:

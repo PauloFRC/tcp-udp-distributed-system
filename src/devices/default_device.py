@@ -6,7 +6,7 @@ import pika
 
 #from jwt import DecodeError
 from jwt.exceptions import JWSDecodeError
-from proto.sensor_data_pb2 import Response, DeviceCommand, GatewayAnnouncement, CommandRequest
+from proto.sensor_data_pb2 import Response, GatewayAnnouncement, CommandRequest
 from proto.sensor_data_pb2 import SensorReading
 from devices.device import Device
 

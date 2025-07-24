@@ -17,19 +17,27 @@ class AlarmSensor(DeviceClient):
         reading.value = self.state
         reading.unit = ""
         reading.timestamp = int(time.time())
+        reading.metadata["device_ip"] = self._get_local_ip()
         return reading
     
     # Envia alarme e logo após desativa
     def ring_alarm(self):
         self.state = 1.0 # Movimento detectado
-        self.send_tcp_data()
+        reading = self._generate_reading()
+        reading.metadata["grpc_port"] = str(self.grpc_port)
+        self.publish_rabbitmq(reading.SerializeToString())
 
     def turn_off(self):
         self.state = 0.0 # Sem movimento
-        self.send_tcp_data()    
+        reading = self._generate_reading()
+        reading.metadata["grpc_port"] = str(self.grpc_port)
+        self.publish_rabbitmq(reading.SerializeToString())
 
     def _monitor_loop(self):
         super()._monitor_loop()
+
+        self.connect_rabbitmq()
+        self.grpc_server_started.wait()
         while self.running:
             time.sleep(self.interval)
             print(f"🚨 [{self.sensor_id}] Alarme detectado!")

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
@@ -34,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ds.distributedsystems.ui.theme.DistributedSystemsTheme
@@ -326,6 +329,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun DeviceReadingComponent(deviceInfo: Device) {
         val scope = rememberCoroutineScope()
+        var intervalText by remember { mutableStateOf("") }
         var onDemandData by remember { mutableStateOf<Device?>(null) }
         var requestStatus by remember { mutableStateOf("") }
         val apiService = RetrofitClient.instance
@@ -406,6 +410,27 @@ class MainActivity : ComponentActivity() {
                         }
                         Button(onClick = { sendDeviceCommand("verde") }) {
                             Text("Abrir semáforo")
+                        }
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            TextField(
+                                value = intervalText,
+                                onValueChange = { intervalText = it },
+                                label = { Text("Intervalo (segundos)") },
+                                keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
+                            )
+                            Button(
+                                onClick = {
+                                    val intervalInt = intervalText.toIntOrNull()
+                                    if (intervalInt != null) {
+                                        sendDeviceCommand(intervalInt.toString())
+                                    }
+                                }
+                            ) {
+                                Text("Atualizar intervalo")
+                            }
                         }
                     }
                     "LAMP_POST" -> {
