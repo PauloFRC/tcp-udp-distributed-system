@@ -16,10 +16,17 @@ class TemperatureSensorClient(DeviceClient):
         reading.value = round(random.uniform(18.0, 25.0), 2)
         reading.unit = "°C"
         reading.timestamp = int(time.time())
+        reading.metadata["device_ip"] = self._get_local_ip()
         return reading
 
     def _monitor_loop(self):
         super()._monitor_loop()
+        self.connect_rabbitmq()
+        self.grpc_server_started.wait() 
         while self.running:
-            self.send_udp_data()
+            reading = self._generate_reading()
+            reading.metadata["grpc_port"] = str(self.grpc_port) 
+            self.publish_rabbitmq(reading.SerializeToString())
             time.sleep(self.interval)
+
+    

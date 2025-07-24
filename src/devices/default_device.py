@@ -2,6 +2,7 @@ import socket
 import struct
 import threading
 import time
+import pika
 
 #from jwt import DecodeError
 from jwt.exceptions import JWSDecodeError
@@ -27,7 +28,7 @@ class DeviceControlServicer(sensor_data_pb2_grpc.DeviceControlServicer):
         return sensor_data_pb2.CommandResponse(success=True, message="Dados TCP enviados")
 
 class DeviceClient(Device):
-    def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791, grpc_port=0):
+    def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791, grpc_port=0, rabbitmq_host='localhost', rabbitmq_port=5672):
         super().__init__(sensor_id, location)
         self.interval = interval
         self.discovery_group = discovery_group
@@ -39,8 +40,53 @@ class DeviceClient(Device):
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+        self.rabbitmq_host = rabbitmq_host
+        self.rabbitmq_port = rabbitmq_port
+        self.connection = None
+        self.channel = None
+        self.exchange_name = 'sensor_data_exchange'
+
         self.running = False
         self.grpc_server_started = threading.Event()
+
+    def _get_local_ip(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(('10.255.255.255', 1))
+            ip = s.getsockname()[0]
+        except Exception:
+            ip = '127.0.0.1'
+        finally:
+            s.close()
+        return ip
+
+    def connect_rabbitmq(self):
+        try:
+            self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.rabbitmq_host, port=self.rabbitmq_port))
+            self.channel = self.connection.channel()
+            self.channel.exchange_declare(exchange=self.exchange_name, exchange_type='fanout')
+            print(f"✅ [{self.sensor_id}] Conectado ao RabbitMQ em {self.rabbitmq_host}:{self.rabbitmq_port}")
+        except pika.exceptions.AMQPConnectionError as e:
+            print(f"❌ [{self.sensor_id}] Erro ao conectar ao RabbitMQ: {e}")
+            self.connection = None
+            self.channel = None
+
+    def publish_rabbitmq(self, data: bytes):
+        if not self.channel:
+            print(f"⚠️ [{self.sensor_id}] Não conectado ao RabbitMQ. Tentando reconectar...")
+            self.connect_rabbitmq()
+            if not self.channel:
+                print(f"❌ [{self.sensor_id}] Falha ao reconectar ao RabbitMQ. Não foi possível publicar dados.")
+                return
+        try:
+            self.channel.basic_publish(exchange=self.exchange_name, routing_key='', body=data)
+            print(f"📤 [{self.sensor_id}] Publicou dados no RabbitMQ.")
+        except Exception as e:
+            print(f"❌ [{self.sensor_id}] Erro ao publicar dados no RabbitMQ: {e}")
+            if self.connection:
+                self.connection.close()
+            self.connection = None
+            self.channel = None
 
     def start_grpc_server(self):
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))

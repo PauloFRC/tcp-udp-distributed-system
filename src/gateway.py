@@ -4,6 +4,7 @@ import threading
 import time
 import datetime
 import struct
+import pika
 from proto.sensor_data_pb2 import SensorReading, Response, DeviceType, GatewayAnnouncement, AppRequest, GatewayResponse
 
 import grpc
@@ -12,7 +13,7 @@ from proto import sensor_data_pb2_grpc
 
 class Gateway:
     def __init__(self, host='0.0.0.0', tcp_port=6789, udp_port=6790, discovery_group='228.0.0.8', 
-                 discovery_port=6791, status_query_port=8082):
+                 discovery_port=6791, status_query_port=8082, rabbitmq_host='localhost', rabbitmq_port=5672):
         self.host = host
         self.tcp_port = tcp_port
         self.udp_port = udp_port
@@ -27,6 +28,12 @@ class Gateway:
         self.sensor_data = {}
         self.sensor_data_lock = threading.Lock()
 
+        self.rabbitmq_host = rabbitmq_host
+        self.rabbitmq_port = rabbitmq_port
+        self.connection = None
+        self.channel = None
+        self.exchange_name = 'sensor_data_exchange'
+
         self.gateway_ip = self._get_local_ip()
 
     def _get_local_ip(self):
@@ -39,6 +46,42 @@ class Gateway:
         finally:
             s.close()
         return ip
+
+    def connect_rabbitmq(self):
+        try:
+            self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.rabbitmq_host, port=self.rabbitmq_port))
+            self.channel = self.connection.channel()
+            self.channel.exchange_declare(exchange=self.exchange_name, exchange_type='fanout')
+            result = self.channel.queue_declare(queue='', exclusive=True)
+            self.queue_name = result.method.queue
+            self.channel.queue_bind(exchange=self.exchange_name, queue=self.queue_name)
+            print(f"✅ Conectado ao RabbitMQ em {self.rabbitmq_host}:{self.rabbitmq_port}")
+        except pika.exceptions.AMQPConnectionError as e:
+            print(f"❌ Erro ao conectar ao RabbitMQ: {e}")
+            self.connection = None
+            self.channel = None
+
+    def listen_rabbitmq(self):
+        if not self.channel:
+            print("⚠️ Não conectado ao RabbitMQ. Tentando reconectar...")
+            self.connect_rabbitmq()
+            if not self.channel:
+                return
+
+        print(f"🌐 Gateway (RabbitMQ) ouvindo na fila '{self.queue_name}' para dados de sensores")
+        try:
+            self.channel.basic_consume(queue=self.queue_name, on_message_callback=self._rabbitmq_callback, auto_ack=True)
+            self.channel.start_consuming()
+        except Exception as e:
+            print(f"❌ Erro ao consumir mensagens do RabbitMQ: {e}")
+            if self.connection:
+                self.connection.close()
+            self.connection = None
+            self.channel = None
+
+    def _rabbitmq_callback(self, ch, method, properties, body):
+        # The body contains the serialized SensorReading protobuf message
+        self.handle_sensor_data(body, addr=("RabbitMQ", self.rabbitmq_port), protocol="RabbitMQ")
     
     def send_command_to_device(self, device_id, command_str, params=None):
         with self.devices_lock:
@@ -92,7 +135,7 @@ class Gateway:
                     with self.devices_lock:
                         self.devices[reading.sensor_id] = {
                             "address": addr[0],
-                            "grpc_port": int(reading.metadata.get("grpc_port", 50051)) # Default port
+                            "grpc_port": int(reading.metadata.get("grpc_port", 50051)) 
                         }
 
                     reading.metadata["address"] = addr[0]
@@ -129,15 +172,16 @@ class Gateway:
         finally:
             conn.close()
 
-    def handle_udp_data(self, data, addr, protocol="UDP"):
+    def handle_sensor_data(self, data, addr, protocol="UDP"):
         try:
             reading = SensorReading()
             reading.ParseFromString(data)
 
             with self.devices_lock:
+                device_address = addr[0] if protocol != "RabbitMQ" else reading.metadata.get("device_ip", "unknown")
                 self.devices[reading.sensor_id] = {
-                    "address": addr[0],
-                    "grpc_port": int(reading.metadata.get("grpc_port", 50051)) # Default port
+                    "address": device_address,
+                    "grpc_port": int(reading.metadata.get("grpc_port", 50051))
                 }
 
             with self.sensor_data_lock:
@@ -183,15 +227,7 @@ class Gateway:
             client_thread.daemon = True
             client_thread.start()
 
-    def listen_udp(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind((self.host, self.udp_port))
-
-        print(f"🌐 Gateway (UDP) ouvindo em {self.host}:{self.udp_port} para dados de sensores")
-
-        while self.running:
-            data, addr = sock.recvfrom(1024)
-            self.handle_udp_data(data, addr)
+ 
 
     def broadcast_discovery(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -218,9 +254,11 @@ class Gateway:
         tcp_thread.daemon = True
         tcp_thread.start()
 
-        udp_thread = threading.Thread(target=self.listen_udp)
-        udp_thread.daemon = True
-        udp_thread.start()
+
+
+        rabbitmq_thread = threading.Thread(target=self.listen_rabbitmq)
+        rabbitmq_thread.daemon = True
+        rabbitmq_thread.start()
 
         discovery_thread = threading.Thread(target=self.broadcast_discovery)
         discovery_thread.daemon = True
