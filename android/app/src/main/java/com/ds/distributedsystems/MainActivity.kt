@@ -364,7 +364,7 @@ class MainActivity : ComponentActivity() {
                 Spacer(Modifier.height(10.dp))
 
                 Text(
-                    "${displayDevice.value} ${displayDevice.unit}",
+                    text = "${displayDevice.value} ${displayDevice.unit?.let { it } ?: ""}".trim(),
                     style = MaterialTheme.typography.headlineMedium,
                     color = if (onDemandData != null) MaterialTheme.colorScheme.primary else LocalContentColor.current
                 )
@@ -403,6 +403,9 @@ class MainActivity : ComponentActivity() {
                     "SEMAPHORE" -> {
                         Button(onClick = { sendDeviceCommand("vermelho") }) {
                             Text("Fechar semáforo")
+                        }
+                        Button(onClick = { sendDeviceCommand("verde") }) {
+                            Text("Abrir semáforo")
                         }
                     }
                     "LAMP_POST" -> {

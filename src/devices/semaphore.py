@@ -1,6 +1,6 @@
 import threading
 import time
-from proto.sensor_data_pb2 import DeviceType, DeviceCommand, CommandResponse
+from proto.sensor_data_pb2 import DeviceType, DeviceCommand, CommandResponse, CommandRequest
 from proto.sensor_data_pb2 import SensorReading
 from devices.default_device import DeviceClient
 
@@ -22,6 +22,7 @@ class Semaphore(DeviceClient):
         reading.sensor_type = DeviceType.SEMAPHORE
         reading.value = self.semaphore_color_map[self.state]
         reading.timestamp = int(time.time())
+        reading.metadata["device_ip"] = self._get_local_ip()
         return reading
     
     def _next_state(self):
@@ -33,16 +34,17 @@ class Semaphore(DeviceClient):
             case "verde": 
                 self.state = "vermelho"
     
-    def handle_command(self, command: str):
+    def handle_command(self, command: CommandRequest):
         super().handle_command(command)
-        if command in ["vermelho", "amarelo", "verde"]:
-            self.SetSemaphoreLight(command, None) # Pass command directly, context is not used here
+        command_str = command.command
+        if command_str in ["vermelho", "amarelo", "verde"]:
+            self.SetSemaphoreLight(command_str, None)
 
     def SetSemaphoreLight(self, request, context):
         with self.state_lock:
-            self.state = request.state
+            self.state = request
         print(f"🚦 [{self.sensor_id}] Semáforo atualizado:", self.state)
-        return CommandResponse(success=True, message=f"Luz do semáforo alterada para {request.state}")
+        return CommandResponse(success=True, message=f"Luz do semáforo alterada para {request}")
     
     def _semaphore_loop(self):
         while self.running:
@@ -55,6 +57,11 @@ class Semaphore(DeviceClient):
         super()._monitor_loop()
         # inicializa thread de atualizar o semáforo
         self._thread_semaphore.start()
+
+        self.connect_rabbitmq()
+        self.grpc_server_started.wait()
         while self.running:
-            self.send_udp_data()
-            time.sleep(self.interval)    
+            reading = self._generate_reading()
+            reading.metadata["grpc_port"] = str(self.grpc_port)
+            self.publish_rabbitmq(reading.SerializeToString())
+            time.sleep(self.interval)  

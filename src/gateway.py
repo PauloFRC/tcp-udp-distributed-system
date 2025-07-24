@@ -236,7 +236,9 @@ class Gateway:
         announcement = GatewayAnnouncement(
             gateway_ip=self.gateway_ip,
             tcp_port=self.tcp_port,
-            udp_port=self.udp_port
+            udp_port=self.udp_port,
+            rabbitmq_host=self.rabbitmq_host,
+            rabbitmq_port=self.rabbitmq_port
         )
         message = announcement.SerializeToString()
 

@@ -6,7 +6,7 @@ import pika
 
 #from jwt import DecodeError
 from jwt.exceptions import JWSDecodeError
-from proto.sensor_data_pb2 import Response, DeviceCommand, GatewayAnnouncement
+from proto.sensor_data_pb2 import Response, DeviceCommand, GatewayAnnouncement, CommandRequest
 from proto.sensor_data_pb2 import SensorReading
 from devices.device import Device
 
@@ -28,7 +28,7 @@ class DeviceControlServicer(sensor_data_pb2_grpc.DeviceControlServicer):
         return sensor_data_pb2.CommandResponse(success=True, message="Dados TCP enviados")
 
 class DeviceClient(Device):
-    def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791, grpc_port=0, rabbitmq_host='localhost', rabbitmq_port=5672):
+    def __init__(self, sensor_id: str, location: str, interval=30, discovery_group='228.0.0.8', discovery_port=6791, grpc_port=0):
         super().__init__(sensor_id, location)
         self.interval = interval
         self.discovery_group = discovery_group
@@ -37,11 +37,11 @@ class DeviceClient(Device):
 
         self.tcp_gateway_address = None
         self.udp_gateway_address = None
+        self.rabbitmq_host = None
+        self.rabbitmq_port = None
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        self.rabbitmq_host = rabbitmq_host
-        self.rabbitmq_port = rabbitmq_port
         self.connection = None
         self.channel = None
         self.exchange_name = 'sensor_data_exchange'
@@ -61,6 +61,9 @@ class DeviceClient(Device):
         return ip
 
     def connect_rabbitmq(self):
+        if self.rabbitmq_host is None or self.rabbitmq_port is None:
+            print(f"⚠️ [{self.sensor_id}] RabbitMQ host/port não descobertos ainda. Pulando conexão.")
+            return
         try:
             self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.rabbitmq_host, port=self.rabbitmq_port))
             self.channel = self.connection.channel()
@@ -121,6 +124,8 @@ class DeviceClient(Device):
                 self.tcp_gateway_address = (announcement.gateway_ip, announcement.tcp_port)
                 self.udp_gateway_address = (announcement.gateway_ip, announcement.udp_port)
                 self.command_gateway_address = (announcement.gateway_ip, announcement.command_port)
+                self.rabbitmq_host = announcement.rabbitmq_host
+                self.rabbitmq_port = announcement.rabbitmq_port
 
                 print(f"✅ [{self.sensor_id}] Gateway encontrado em {self.tcp_gateway_address}")
             except socket.timeout:
@@ -145,8 +150,8 @@ class DeviceClient(Device):
     def _generate_reading(self) -> SensorReading:
         pass
 
-    def handle_command(self, command: str):
-        print(f"📥 [{self.sensor_id}] Recebeu o comando: '{command}'")
+    def handle_command(self, command: CommandRequest):
+        print(f"📥 [{self.sensor_id}] Recebeu o comando: '{command.command}'")
 
     def send_tcp_data(self):
         self.grpc_server_started.wait() 

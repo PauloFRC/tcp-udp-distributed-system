@@ -30,6 +30,8 @@ message GatewayAnnouncement {
     uint32 tcp_port = 2;
     uint32 udp_port = 3;
     uint32 command_port = 4;
+    string rabbitmq_host = 5;
+    uint32 rabbitmq_port = 6;
 }
 
 message DeviceCommand {
